@@ -392,6 +392,10 @@ object GUIAnalysis extends IAnalysis {
     if (mainActivity != null) {
       writer.writeConstraint(ConstraintWriter.Constraint.mainActivity, mainActivity)
     }
+    val newlpMainActivity = Scene.v.getSootClassUnsafe("com.revlwp.wallpaper.newlp.MainActivity")
+    if (newlpMainActivity != null) {
+      writer.writeConstraint(ConstraintWriter.Constraint.mainActivity, newlpMainActivity)
+    } 
 
     for ((className, filters) <- xmlParser.getIntentFilters.asScala) {
       try {
@@ -468,15 +472,14 @@ object GUIAnalysis extends IAnalysis {
       val stmt = unit.asInstanceOf[Stmt]
       if (stmt.containsInvokeExpr()) {
         val invokeExpr = stmt.getInvokeExpr
-        if (invokeExpr.getMethod.getSignature.contains("CountDownTimer")) {
-          val runnableArg = invokeExpr.getArg(0).asInstanceOf[Local]
-          val runnableArgClass = runnableArg.getType.asInstanceOf[RefType].getSootClass
-          val runMethod = runnableArgClass.getMethodByNameUnsafe("onFinish")
-          val invocation = Jimple.v().newInvokeStmt(Jimple.v().newVirtualInvokeExpr(runnableArg, runMethod.makeRef()))
+        if (invokeExpr.getMethod.getSignature == "<android.os.CountDownTimer: android.os.CountDownTimer start()>") {
+          val timer = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.asInstanceOf[Local]
+          val timerClass = timer.getType.asInstanceOf[RefType].getSootClass
+          val onFinish = timerClass.getMethodByNameUnsafe("onFinish")
+          val invocation = Jimple.v().newInvokeStmt(Jimple.v().newVirtualInvokeExpr(timer, onFinish.makeRef()))
           Scene.v().getCallGraph.removeAllEdgesOutOf(stmt)
-          Scene.v().getCallGraph.addEdge(new Edge(m, invocation, runMethod))
-          methodAndReachables.getOrElseUpdate(m, mutable.Set()).add(runMethod)
-          // FIXME: can't reach handler here
+          Scene.v().getCallGraph.addEdge(new Edge(m, invocation, onFinish))
+          methodAndReachables.getOrElseUpdate(m, mutable.Set()).add(onFinish)
           swaps.put(stmt, invocation)
         }
       }
@@ -849,6 +852,17 @@ object GUIAnalysis extends IAnalysis {
     }
   }
 
+  def instrumentAllMethods(): Unit = {
+    for (activity <- allActivities) {
+      for (method <- activity.getMethods.asScala) {
+        if (method.isConcrete && method.hasActiveBody) {
+          // FIXME: remove the mainActivity workaround by fixing this
+          // instrumentStartTimer(method)
+        }
+      }
+    }
+  }
+
   def instrumentDialogCreate(method: SootMethod, activity: SootClass): Unit = {
     val paramLocal = method.getActiveBody.getParameterLocal(0)
     var hasIfStmt = false
@@ -975,6 +989,8 @@ object GUIAnalysis extends IAnalysis {
     runIFDS()
 
     instrumentAllDialogCreate()
+
+    instrumentAllMethods()
 
     writer = new ConstraintWriter(outputPath)
 
