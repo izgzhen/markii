@@ -458,6 +458,34 @@ object GUIAnalysis extends IAnalysis {
     }
   }
 
+  /**
+   * Example: a8e458e619d5235fe8a97ea0186961acc1192ed13bb28a79b493c752747cc683
+   * @param m
+   */
+  def instrumentStartTimer(m: SootMethod): Unit = {
+    val swaps = mutable.Map[Stmt, Stmt]()
+    for (unit <- m.getActiveBody.getUnits.asScala) {
+      val stmt = unit.asInstanceOf[Stmt]
+      if (stmt.containsInvokeExpr()) {
+        val invokeExpr = stmt.getInvokeExpr
+        if (invokeExpr.getMethod.getSignature.contains("CountDownTimer")) {
+          val runnableArg = invokeExpr.getArg(0).asInstanceOf[Local]
+          val runnableArgClass = runnableArg.getType.asInstanceOf[RefType].getSootClass
+          val runMethod = runnableArgClass.getMethodByNameUnsafe("onFinish")
+          val invocation = Jimple.v().newInvokeStmt(Jimple.v().newVirtualInvokeExpr(runnableArg, runMethod.makeRef()))
+          Scene.v().getCallGraph.removeAllEdgesOutOf(stmt)
+          Scene.v().getCallGraph.addEdge(new Edge(m, invocation, runMethod))
+          methodAndReachables.getOrElseUpdate(m, mutable.Set()).add(runMethod)
+          // FIXME: can't reach handler here
+          swaps.put(stmt, invocation)
+        }
+      }
+    }
+    for ((out, in) <- swaps) {
+      m.getActiveBody.getUnits.swapWith(out, in)
+    }
+  }
+
   def analyzeAnyHandlerPreVasco(handler: SootMethod): Unit = {
     val reachedMethods = reachableMethods(handler)
     for (reached <- reachedMethods) {
