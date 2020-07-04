@@ -260,6 +260,7 @@ com.apperhand.*
 com.appflood.*
 com.applidium.*
 com.applifier.*
+com.appnext.*
 com.araneaapps.*
 com.arellomobile.*
 com.astuetz.*

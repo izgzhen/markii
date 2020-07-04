@@ -158,16 +158,20 @@ class AbstractValuePropVasco(entryPoints: List[SootMethod])
 //  private var maxLog = Some(100)
   private var maxLog: Option[Int] = None
   private var logStateCounter = 0
+  private var logStateMethodCounters = mutable.Map[SootMethod, Int]()
   private val logStateInterval = 1000
 
   private def logState(method: SootMethod, unit: soot.Unit, d: Domain): Unit = {
 //    println(method, unit, d.sizeSummary)
     if (!GUIAnalysis.debugMode) return
     if (logStateCounter == logStateInterval) {
+      println(logStateMethodCounters.toList.sortBy(_._2).takeRight(5))
+      logStateMethodCounters = mutable.Map[SootMethod, Int]()
       logStateCounter = 0
       println(s"worklist size: ${Instant.now.getEpochSecond}: ${worklist.size()}")
     } else {
       logStateCounter += 1
+      logStateMethodCounters(method) = logStateMethodCounters.getOrElse(method, 0) + 1
     }
     if (method.getSignature != "<xvideo.furbie.ro.AsyncListActivity: void gopro()>") {
       return
