@@ -134,11 +134,14 @@ class AbstractValuePropVasco(entryPoints: List[SootMethod])
           input // Don't kill for other builder setters
         } else if (signature == "<android.view.LayoutInflater: android.view.View inflate(int,android.view.ViewGroup,boolean)>") {
           // FIXME: other inflate signatures
-          val intConstant = invokeExpr.getArg(0).asInstanceOf[IntConstant]
-          invokeExpr.getArg(1) match {
-            case parentView: Local =>
-              val attachToRoot = invokeExpr.getArg(2).asInstanceOf[IntConstant].value != 0
-              killed.inflate(ctxMethod, assignStmt, intConstant.value, ref, parentView, attachToRoot)
+          invokeExpr.getArg(0) match {
+            case intConstant: IntConstant =>
+              invokeExpr.getArg(1) match {
+                case parentView: Local =>
+                  val attachToRoot = invokeExpr.getArg(2).asInstanceOf[IntConstant].value != 0
+                  killed.inflate(ctxMethod, assignStmt, intConstant.value, ref, parentView, attachToRoot)
+                case _ => killed
+              }
             case _ => killed
           }
         } else {

@@ -498,97 +498,101 @@ object GUIAnalysis extends IAnalysis {
           val stmt = unit.asInstanceOf[Stmt]
           if (stmt.containsInvokeExpr()) {
             val invokeExpr = stmt.getInvokeExpr
-            if (invokeExpr.getMethod.getSubSignature == "void startActivity(android.content.Intent)") {
-              // NOTE: the base type is only used to provide an application context, thus it can't be used to infer the
-              //       source activity
-              GUIAnalysis.getIfdsResultAt(stmt, invokeExpr.getArg(0)).foreach {
-                case AbstractValue.Intent(intent) =>
-                  // FIXME: imprecision if we ignore the actions etc. fields?
-                  val methods = mutable.Set[SootMethod]()
-                  for (target <- intent.targets) {
-                    DynamicCFG.getRunner(target) match {
-                      case Some(runner) => methods.add(runner.method)
-                      case None =>
+            val invokedMethod = Util.getMethodUnsafe(invokeExpr)
+            if (invokedMethod != null) {
+              if (invokedMethod.getSubSignature == "void startActivity(android.content.Intent)") {
+                // NOTE: the base type is only used to provide an application context, thus it can't be used to infer the
+                //       source activity
+                GUIAnalysis.getIfdsResultAt(stmt, invokeExpr.getArg(0)).foreach {
+                  case AbstractValue.Intent(intent) =>
+                    // FIXME: imprecision if we ignore the actions etc. fields?
+                    val methods = mutable.Set[SootMethod]()
+                    for (target <- intent.targets) {
+                      DynamicCFG.getRunner(target) match {
+                        case Some(runner) => methods.add(runner.method)
+                        case None =>
+                      }
+                      if (!ic3Enabled) {
+                        writer.writeConstraint(ConstraintWriter.Constraint.startActivity, handler, reached, target)
+                      }
                     }
-                    if (!ic3Enabled) {
-                      writer.writeConstraint(ConstraintWriter.Constraint.startActivity, handler, reached, target)
-                    }
-                  }
-                  val base = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.getType.asInstanceOf[RefType].getSootClass
-                  val runAllMethod = DynamicCFG.getRunAll(stmt, methods, base, invokeExpr.getMethod)
-                  Scene.v().getCallGraph.removeAllEdgesOutOf(stmt)
-                  Scene.v().getCallGraph.addEdge(new Edge(reached, stmt, runAllMethod))
-                  // NOTE: no invocation/stmt swap
-                  startWindowStmts.add(stmt)
-                  invokeExpr.setMethodRef(runAllMethod.makeRef())
-                case _ =>
-              }
-            }
-            // TODO: need to bind analyze listener setting in IFDS first
-            // TODO: actually -- this is a more complicated recursive problem. but we can play it easy first.
-            // FIXME: AlertDialog$Builder has a show method as well, this might not work well...but we take it as if it is a Dialog object now
-            if (Constants.isDialogShow(invokeExpr.getMethod.getSignature) ||
-                Constants.isDialogBuilderShow(invokeExpr.getMethod.getSignature)) {
-              val dialogBase = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.asInstanceOf[Local]
-              val methods = mutable.Set[SootMethod]()
-              for (defStmt <- getDefsOfAt(reached, dialogBase, stmt)) {
-                DynamicCFG.getRunnerOfDialog(defStmt) match {
-                  case Some(runner) => methods.add(runner.method)
-                  case None =>
+                    val base = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.getType.asInstanceOf[RefType].getSootClass
+                    val runAllMethod = DynamicCFG.getRunAll(stmt, methods, base, invokedMethod)
+                    Scene.v().getCallGraph.removeAllEdgesOutOf(stmt)
+                    Scene.v().getCallGraph.addEdge(new Edge(reached, stmt, runAllMethod))
+                    // NOTE: no invocation/stmt swap
+                    startWindowStmts.add(stmt)
+                    invokeExpr.setMethodRef(runAllMethod.makeRef())
+                  case _ =>
                 }
               }
-              if (methods.nonEmpty) {
-                // FIXME: I need to build a static class for this type of work
-                val runAllMethod = DynamicCFG.getRunAllDialog(stmt, methods, reached)
-                val invocation = Jimple.v().newInvokeStmt(Jimple.v().newStaticInvokeExpr(runAllMethod.makeRef(), dialogBase))
-                Scene.v().getCallGraph.removeAllEdgesOutOf(stmt)
-                Scene.v().getCallGraph.addEdge(new Edge(reached, invocation, runAllMethod))
-                swaps.put(stmt, invocation)
-                startWindowStmts.add(invocation)
-                showDialogInvocations.put(invocation, dialogBase)
-              }
-            }
-            if (invokeExpr.getMethod.getSubSignature == "void showDialog(int)") {
-              invokeExpr.getArg(0) match {
-                case intConstant: IntConstant =>
-                  if (showCreateDialog.contains(reached.getDeclaringClass) &&
-                      showCreateDialog(reached.getDeclaringClass).contains(intConstant.value)) {
-                    val createMethod = showCreateDialog(reached.getDeclaringClass)(intConstant.value)
 
-                    DynamicCFG.getRunnerOfDialog(reached.getDeclaringClass, createMethod, intConstant) match {
-                      case Some((runner, internalInvocation)) =>
-                        val invocation = Jimple.v().newInvokeStmt(Jimple.v().newVirtualInvokeExpr(reached.getActiveBody.getThisLocal, runner.method.makeRef()))
-                        Scene.v().getCallGraph.removeAllEdgesOutOf(stmt)
-                        Scene.v().getCallGraph.addEdge(new Edge(reached, invocation, runner.method))
-                        methodAndReachables.getOrElseUpdate(reached, mutable.Set()).add(runner.method)
-                        methodAndReachables.getOrElseUpdate(handler, mutable.Set()).add(runner.method)
-                        swaps.put(stmt, invocation)
-                        startWindowStmts.add(invocation)
-                        showDialogInvocations.put(internalInvocation, runner.view)
-                      case None =>
-                    }
+              // TODO: need to bind analyze listener setting in IFDS first
+              // TODO: actually -- this is a more complicated recursive problem. but we can play it easy first.
+              // FIXME: AlertDialog$Builder has a show method as well, this might not work well...but we take it as if it is a Dialog object now
+              if (Constants.isDialogShow(invokedMethod.getSignature) ||
+                Constants.isDialogBuilderShow(invokedMethod.getSignature)) {
+                val dialogBase = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.asInstanceOf[Local]
+                val methods = mutable.Set[SootMethod]()
+                for (defStmt <- getDefsOfAt(reached, dialogBase, stmt)) {
+                  DynamicCFG.getRunnerOfDialog(defStmt) match {
+                    case Some(runner) => methods.add(runner.method)
+                    case None =>
                   }
-                case _ =>
+                }
+                if (methods.nonEmpty) {
+                  // FIXME: I need to build a static class for this type of work
+                  val runAllMethod = DynamicCFG.getRunAllDialog(stmt, methods, reached)
+                  val invocation = Jimple.v().newInvokeStmt(Jimple.v().newStaticInvokeExpr(runAllMethod.makeRef(), dialogBase))
+                  Scene.v().getCallGraph.removeAllEdgesOutOf(stmt)
+                  Scene.v().getCallGraph.addEdge(new Edge(reached, invocation, runAllMethod))
+                  swaps.put(stmt, invocation)
+                  startWindowStmts.add(invocation)
+                  showDialogInvocations.put(invocation, dialogBase)
+                }
               }
-            }
-            // Replace loadNativeAds with the load handler
-            if (invokeExpr.getMethod.getName == "loadNativeAds") {
-              for ((argType, idx) <- invokeExpr.getMethod.getParameterTypes.asScala.zipWithIndex) {
-                if (argType.toString == "com.applovin.nativeAds.AppLovinNativeAdLoadListener") {
-                  val listenerArg = invokeExpr.getArg(idx).asInstanceOf[Local]
-                  val listenerClass = listenerArg.getType.asInstanceOf[RefType].getSootClass
-                  val adLoadHandler = listenerClass.getMethodByNameUnsafe("onNativeAdsLoaded")
-                  if (adLoadHandler != null && Constants.isActivity(reached.getDeclaringClass)) {
-                    // Instrument adLoadHandler
-                    instrumentRunOnUiThread(adLoadHandler)
+              if (invokedMethod.getSubSignature == "void showDialog(int)") {
+                invokeExpr.getArg(0) match {
+                  case intConstant: IntConstant =>
+                    if (showCreateDialog.contains(reached.getDeclaringClass) &&
+                      showCreateDialog(reached.getDeclaringClass).contains(intConstant.value)) {
+                      val createMethod = showCreateDialog(reached.getDeclaringClass)(intConstant.value)
 
-                    // Replace invocation
-                    val invocation = Jimple.v().newInvokeStmt(Jimple.v().newVirtualInvokeExpr(listenerArg, adLoadHandler.makeRef()))
-                    Scene.v().getCallGraph.removeAllEdgesOutOf(stmt)
-                    Scene.v().getCallGraph.addEdge(new Edge(reached, invocation, adLoadHandler))
-                    methodAndReachables.getOrElseUpdate(reached, mutable.Set()).add(adLoadHandler) // All these are very hacky..
-                    methodAndReachables.getOrElseUpdate(handler, mutable.Set()).add(adLoadHandler)
-                    swaps.put(stmt, invocation)
+                      DynamicCFG.getRunnerOfDialog(reached.getDeclaringClass, createMethod, intConstant) match {
+                        case Some((runner, internalInvocation)) =>
+                          val invocation = Jimple.v().newInvokeStmt(Jimple.v().newVirtualInvokeExpr(reached.getActiveBody.getThisLocal, runner.method.makeRef()))
+                          Scene.v().getCallGraph.removeAllEdgesOutOf(stmt)
+                          Scene.v().getCallGraph.addEdge(new Edge(reached, invocation, runner.method))
+                          methodAndReachables.getOrElseUpdate(reached, mutable.Set()).add(runner.method)
+                          methodAndReachables.getOrElseUpdate(handler, mutable.Set()).add(runner.method)
+                          swaps.put(stmt, invocation)
+                          startWindowStmts.add(invocation)
+                          showDialogInvocations.put(internalInvocation, runner.view)
+                        case None =>
+                      }
+                    }
+                  case _ =>
+                }
+              }
+              // Replace loadNativeAds with the load handler
+              if (invokedMethod.getName == "loadNativeAds") {
+                for ((argType, idx) <- invokedMethod.getParameterTypes.asScala.zipWithIndex) {
+                  if (argType.toString == "com.applovin.nativeAds.AppLovinNativeAdLoadListener") {
+                    val listenerArg = invokeExpr.getArg(idx).asInstanceOf[Local]
+                    val listenerClass = listenerArg.getType.asInstanceOf[RefType].getSootClass
+                    val adLoadHandler = listenerClass.getMethodByNameUnsafe("onNativeAdsLoaded")
+                    if (adLoadHandler != null && Constants.isActivity(reached.getDeclaringClass)) {
+                      // Instrument adLoadHandler
+                      instrumentRunOnUiThread(adLoadHandler)
+
+                      // Replace invocation
+                      val invocation = Jimple.v().newInvokeStmt(Jimple.v().newVirtualInvokeExpr(listenerArg, adLoadHandler.makeRef()))
+                      Scene.v().getCallGraph.removeAllEdgesOutOf(stmt)
+                      Scene.v().getCallGraph.addEdge(new Edge(reached, invocation, adLoadHandler))
+                      methodAndReachables.getOrElseUpdate(reached, mutable.Set()).add(adLoadHandler) // All these are very hacky..
+                      methodAndReachables.getOrElseUpdate(handler, mutable.Set()).add(adLoadHandler)
+                      swaps.put(stmt, invocation)
+                    }
                   }
                 }
               }
@@ -658,9 +662,8 @@ object GUIAnalysis extends IAnalysis {
           val stmt = unit.asInstanceOf[Stmt]
           if (stmt.containsInvokeExpr()) {
             val invokeExpr = stmt.getInvokeExpr
-
+            val invokedMethod = Util.getMethodUnsafe(invokeExpr)
             val aftDomain = vascoSolution.getValueBefore(stmt)
-            val aftDomain2 = vascoSolution.getValueAfter(stmt)
             if (WTGUtil.v.isActivityFinishCall(stmt)) {
               invokeExpr match {
                 case instanceInvokeExpr: InstanceInvokeExpr =>
@@ -670,93 +673,95 @@ object GUIAnalysis extends IAnalysis {
                 case _ =>
               }
             }
-            if (Constants.isDialogDismiss(invokeExpr.getMethod.getSignature)) {
-              val dialog = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.asInstanceOf[Local]
-              if (aftDomain != null) {
-                // NOTE: We can combine the for-loops here
-                for (dialogNode <- aftDomain.getViewNodes(reached, stmt, dialog)) {
-                  writer.writeConstraint(ConstraintWriter.Constraint.dismiss, handler, dialogNode.nodeID)
-                }
-              }
-            }
-            // FIXME: frauddroid-gba.apk "<android.app.Activity: void showDialog(int)>" and onPrepareDialog, onCreateDialog
-            if (showDialogInvocations.contains(stmt)) {
-              if (aftDomain != null) {
-                val dialogBase = showDialogInvocations(stmt)
-                for (dialogNode <- aftDomain.getViewNodes(reached, stmt, dialogBase)) {
-                  writer.writeConstraint(ConstraintWriter.Constraint.dialogView, dialogNode.nodeID, icfg.getMethodOf(dialogNode.allocSite))
-                  writer.writeConstraint(ConstraintWriter.Constraint.showDialog, handler, reached, dialogNode.nodeID)
-                  for (handler <- aftDomain.getDialogButtonHandlers(dialogNode)) {
-                    writer.writeConstraint(ConstraintWriter.Constraint.alertDialogFixedButtonHandler, handler, dialogNode.nodeID)
+            if (invokedMethod != null) {
+              if (Constants.isDialogDismiss(invokedMethod.getSignature)) {
+                val dialog = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.asInstanceOf[Local]
+                if (aftDomain != null) {
+                  // NOTE: We can combine the for-loops here
+                  for (dialogNode <- aftDomain.getViewNodes(reached, stmt, dialog)) {
+                    writer.writeConstraint(ConstraintWriter.Constraint.dismiss, handler, dialogNode.nodeID)
                   }
                 }
               }
-            }
-            if (invokeExpr.getMethod.getSignature == "<com.google.ads.consent.ConsentInformation: void setConsentStatus(com.google.ads.consent.ConsentStatus)>") {
-              writer.writeConstraint(ConstraintWriter.Constraint.setStatus, handler, reached)
-            }
-            if (invokeExpr.getMethod.getSignature == "<com.google.ads.consent.ConsentInformation: void requestConsentInfoUpdate(java.lang.String[],com.google.ads.consent.ConsentInfoUpdateListener)>") {
-              val updateListenerType = invokeExpr.getArg(1).getType.asInstanceOf[RefType]
-              val onConsentInfoUpdated = updateListenerType.getSootClass.getMethodUnsafe("void onConsentInfoUpdated(com.google.ads.consent.ConsentStatus)")
-              if (onConsentInfoUpdated != null) {
-                writer.writeConstraint(ConstraintWriter.Constraint.setConsetInfoUpdateHandler, handler, reached)
-              }
-            }
-            if (invokeExpr.getMethod.getSignature == "<android.os.BaseBundle: void putString(java.lang.String,java.lang.String)>") {
-              if (invokeExpr.getArg(0).isInstanceOf[StringConstant] && invokeExpr.getArg(1).isInstanceOf[StringConstant]) {
-                val arg0 = invokeExpr.getArg(0).asInstanceOf[StringConstant].value
-                val arg1 = invokeExpr.getArg(1).asInstanceOf[StringConstant].value
-                if (arg0 == "npa" && arg1 == "1") {
-                  writer.writeConstraint(ConstraintWriter.Constraint.setNPA, handler)
-                }
-              }
-            }
-
-            if (invokeExpr.getMethod.getSignature == "<com.waps.AdView: void <init>(android.content.Context,android.widget.LinearLayout)>" ||
-              invokeExpr.getMethod.getSignature == "<com.waps.MiniAdView: void <init>(android.content.Context,android.widget.LinearLayout)>") {
-              val layout = invokeExpr.getArg(1).asInstanceOf[Local]
-              val aftDomain = vascoSolution.getValueBefore(stmt)
-              if (aftDomain != null) {
-                for (node <- aftDomain.getViewNodes(reached, stmt, layout)) {
-                  for (idName <- getIdName(node)) {
-                    writer.writeConstraint(ConstraintWriter.Constraint.adViewIdName, idName)
+              // FIXME: frauddroid-gba.apk "<android.app.Activity: void showDialog(int)>" and onPrepareDialog, onCreateDialog
+              if (showDialogInvocations.contains(stmt)) {
+                if (aftDomain != null) {
+                  val dialogBase = showDialogInvocations(stmt)
+                  for (dialogNode <- aftDomain.getViewNodes(reached, stmt, dialogBase)) {
+                    writer.writeConstraint(ConstraintWriter.Constraint.dialogView, dialogNode.nodeID, icfg.getMethodOf(dialogNode.allocSite))
+                    writer.writeConstraint(ConstraintWriter.Constraint.showDialog, handler, reached, dialogNode.nodeID)
+                    for (handler <- aftDomain.getDialogButtonHandlers(dialogNode)) {
+                      writer.writeConstraint(ConstraintWriter.Constraint.alertDialogFixedButtonHandler, handler, dialogNode.nodeID)
+                    }
                   }
                 }
               }
-            }
-
-            val invokedMethodClass = invokeExpr.getMethod.getDeclaringClass
-            if (invokedMethodClass.getName == "android.media.AudioRecord" && invokeExpr.getMethod.getName == "read") {
-              writer.writeConstraint(ConstraintWriter.Constraint.readAudio, handler, reached)
-            }
-            if (invokedMethodClass.getName == "java.lang.Class" && invokeExpr.getMethod.getName == "getDeclaredMethod") {
-              writer.writeConstraint(ConstraintWriter.Constraint.invokesReflectiveAPI, handler, reached)
-            }
-            if (invokedMethodClass.getName == "com.google.ads.consent.ConsentForm" && invokeExpr.getMethod.getName == "load") {
-              writer.writeConstraint(ConstraintWriter.Constraint.loadGoogleConsentForm, handler, reached)
-            }
-            if (invokedMethodClass.getName == "android.webkit.WebView" && invokeExpr.getMethod.getName == "loadUrl") {
-              var arg0 = "ANY"
-              if (invokeExpr.getArg(0).isInstanceOf[StringConstant]) {
-                arg0 = invokeExpr.getArg(0).asInstanceOf[StringConstant].value
+              if (invokedMethod.getSignature == "<com.google.ads.consent.ConsentInformation: void setConsentStatus(com.google.ads.consent.ConsentStatus)>") {
+                writer.writeConstraint(ConstraintWriter.Constraint.setStatus, handler, reached)
               }
-              writer.writeConstraint(ConstraintWriter.Constraint.loadWebViewUrl, handler, reached, arg0)
-            }
-            if (invokedMethodClass.getName == "com.tongqu.client.utils.Downloader" && invokeExpr.getMethod.getName == "getInst") {
-              writer.writeConstraint(ConstraintWriter.Constraint.downloadApp, handler, reached)
-            }
-            // NOTE: the "reached" field here has a different semantics than gator version
-            if (Constants.isAdMethod(invokeExpr.getMethod)) {
-              writer.writeConstraint(ConstraintWriter.Constraint.showAd, handler, invokeExpr.getMethod)
-            }
-            if (Constants.isSuspiciousAdMethod(invokeExpr.getMethod)) {
-              writer.writeConstraint(ConstraintWriter.Constraint.showSuspiciousAd, handler, reached)
-            }
-            if (Constants.isInterstitialAdMethod(invokeExpr.getMethod)) {
-              writer.writeConstraint(ConstraintWriter.Constraint.showInterstitialAd, handler, reached)
-            }
-            if (Constants.isSuspiciousInterstitialAdMethod(invokeExpr.getMethod)) {
-              writer.writeConstraint(ConstraintWriter.Constraint.showSuspiciousInterstitialAd, handler, reached)
+              if (invokedMethod.getSignature == "<com.google.ads.consent.ConsentInformation: void requestConsentInfoUpdate(java.lang.String[],com.google.ads.consent.ConsentInfoUpdateListener)>") {
+                val updateListenerType = invokeExpr.getArg(1).getType.asInstanceOf[RefType]
+                val onConsentInfoUpdated = updateListenerType.getSootClass.getMethodUnsafe("void onConsentInfoUpdated(com.google.ads.consent.ConsentStatus)")
+                if (onConsentInfoUpdated != null) {
+                  writer.writeConstraint(ConstraintWriter.Constraint.setConsetInfoUpdateHandler, handler, reached)
+                }
+              }
+              if (invokedMethod.getSignature == "<android.os.BaseBundle: void putString(java.lang.String,java.lang.String)>") {
+                if (invokeExpr.getArg(0).isInstanceOf[StringConstant] && invokeExpr.getArg(1).isInstanceOf[StringConstant]) {
+                  val arg0 = invokeExpr.getArg(0).asInstanceOf[StringConstant].value
+                  val arg1 = invokeExpr.getArg(1).asInstanceOf[StringConstant].value
+                  if (arg0 == "npa" && arg1 == "1") {
+                    writer.writeConstraint(ConstraintWriter.Constraint.setNPA, handler)
+                  }
+                }
+              }
+
+              if (invokedMethod.getSignature == "<com.waps.AdView: void <init>(android.content.Context,android.widget.LinearLayout)>" ||
+                  invokedMethod.getSignature == "<com.waps.MiniAdView: void <init>(android.content.Context,android.widget.LinearLayout)>") {
+                val layout = invokeExpr.getArg(1).asInstanceOf[Local]
+                val aftDomain = vascoSolution.getValueBefore(stmt)
+                if (aftDomain != null) {
+                  for (node <- aftDomain.getViewNodes(reached, stmt, layout)) {
+                    for (idName <- getIdName(node)) {
+                      writer.writeConstraint(ConstraintWriter.Constraint.adViewIdName, idName)
+                    }
+                  }
+                }
+              }
+
+              val invokedMethodClass = invokedMethod.getDeclaringClass
+              if (invokedMethodClass.getName == "android.media.AudioRecord" && invokedMethod.getName == "read") {
+                writer.writeConstraint(ConstraintWriter.Constraint.readAudio, handler, reached)
+              }
+              if (invokedMethodClass.getName == "java.lang.Class" && invokedMethod.getName == "getDeclaredMethod") {
+                writer.writeConstraint(ConstraintWriter.Constraint.invokesReflectiveAPI, handler, reached)
+              }
+              if (invokedMethodClass.getName == "com.google.ads.consent.ConsentForm" && invokedMethod.getName == "load") {
+                writer.writeConstraint(ConstraintWriter.Constraint.loadGoogleConsentForm, handler, reached)
+              }
+              if (invokedMethodClass.getName == "android.webkit.WebView" && invokedMethod.getName == "loadUrl") {
+                var arg0 = "ANY"
+                if (invokeExpr.getArg(0).isInstanceOf[StringConstant]) {
+                  arg0 = invokeExpr.getArg(0).asInstanceOf[StringConstant].value
+                }
+                writer.writeConstraint(ConstraintWriter.Constraint.loadWebViewUrl, handler, reached, arg0)
+              }
+              if (invokedMethodClass.getName == "com.tongqu.client.utils.Downloader" && invokedMethod.getName == "getInst") {
+                writer.writeConstraint(ConstraintWriter.Constraint.downloadApp, handler, reached)
+              }
+              // NOTE: the "reached" field here has a different semantics than gator version
+              if (Constants.isAdMethod(invokedMethod)) {
+                writer.writeConstraint(ConstraintWriter.Constraint.showAd, handler, invokedMethod)
+              }
+              if (Constants.isSuspiciousAdMethod(invokedMethod)) {
+                writer.writeConstraint(ConstraintWriter.Constraint.showSuspiciousAd, handler, reached)
+              }
+              if (Constants.isInterstitialAdMethod(invokedMethod)) {
+                writer.writeConstraint(ConstraintWriter.Constraint.showInterstitialAd, handler, reached)
+              }
+              if (Constants.isSuspiciousInterstitialAdMethod(invokedMethod)) {
+                writer.writeConstraint(ConstraintWriter.Constraint.showSuspiciousInterstitialAd, handler, reached)
+              }
             }
           }
         }
