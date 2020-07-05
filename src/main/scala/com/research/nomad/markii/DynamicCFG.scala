@@ -14,7 +14,14 @@ import soot.jimple.toolkits.callgraph.Edge
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
-// TODO: combine this with FlowDroid's hardness -- which is better
+/**
+ * Global manager for maintaining an updatable control-flow graph for problem-specific extensions
+ *
+ * e.g. we need to extend the call-graph for APIs that serves essentially as call some method, like inter-component
+ * communication etc.
+ *
+ * FIXME: Current implementation is very hard to understand.
+ */
 object DynamicCFG {
   private var utilsBaseClass: SootClass = null
   def getUtilsBaseClass: SootClass = {

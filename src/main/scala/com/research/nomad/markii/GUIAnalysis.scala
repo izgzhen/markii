@@ -33,7 +33,7 @@ case class Runner(method: SootMethod, loopExit: soot.Unit, view: Local)
 object GUIAnalysis extends IAnalysis {
   val hier: Hierarchy = Hierarchy.v()
   val xmlParser: XMLParser = XMLParser.Factory.getXMLParser
-  private var writer: ConstraintWriter = _
+  private var writer: FactsWriter = _
 
   private val methodAndReachables = mutable.Map[SootMethod, mutable.Set[SootMethod]]()
 
@@ -93,7 +93,7 @@ object GUIAnalysis extends IAnalysis {
     viewNode.id.foreach(id => {
       getIdName(id) match {
         case Some(idName) =>
-          writer.writeConstraint(ConstraintWriter.Constraint.idName, idName, viewNode.nodeID)
+          writer.writeConstraint(FactsWriter.Fact.idName, idName, viewNode.nodeID)
         case None =>
       }
     })
@@ -103,20 +103,20 @@ object GUIAnalysis extends IAnalysis {
       if (value != null) {
         attrib match {
           case AndroidView.ViewAttr.layout_height =>
-            writer.writeDimensionConstraint(ConstraintWriter.Constraint.layoutHeight, value, viewNode.nodeID)
+            writer.writeDimensionConstraint(FactsWriter.Fact.layoutHeight, value, viewNode.nodeID)
           case AndroidView.ViewAttr.layout_width =>
-            writer.writeDimensionConstraint(ConstraintWriter.Constraint.layoutWidth, value, viewNode.nodeID)
+            writer.writeDimensionConstraint(FactsWriter.Fact.layoutWidth, value, viewNode.nodeID)
           case AndroidView.ViewAttr.textSize =>
-            writer.writeDimensionConstraint(ConstraintWriter.Constraint.textSize, value, viewNode.nodeID)
+            writer.writeDimensionConstraint(FactsWriter.Fact.textSize, value, viewNode.nodeID)
           case AndroidView.ViewAttr.background =>
-            writer.writeConstraint(ConstraintWriter.Constraint.background, value, viewNode.nodeID)
+            writer.writeConstraint(FactsWriter.Fact.background, value, viewNode.nodeID)
           case AndroidView.ViewAttr.text =>
-            writer.writeConstraint(ConstraintWriter.Constraint.textContent, value, viewNode.nodeID)
+            writer.writeConstraint(FactsWriter.Fact.textContent, value, viewNode.nodeID)
             if (value.toLowerCase().contains("rec")) {
-              writer.writeConstraint(ConstraintWriter.Constraint.recordButton, viewNode.nodeID)
+              writer.writeConstraint(FactsWriter.Fact.recordButton, viewNode.nodeID)
             }
             if (value.toLowerCase().contains("continue")) {
-              writer.writeConstraint(ConstraintWriter.Constraint.actionButton, viewNode.nodeID)
+              writer.writeConstraint(FactsWriter.Fact.actionButton, viewNode.nodeID)
             }
           case AndroidView.ViewAttr.contentDescription => hasContentDescription = true
           case _ =>
@@ -127,27 +127,27 @@ object GUIAnalysis extends IAnalysis {
       for (act <- ownerActivities) {
         val method = act.getMethodByNameUnsafe(methodName)
         if (method != null) {
-          writer.writeConstraint(ConstraintWriter.Constraint.eventHandler, eventType, method, viewNode.nodeID)
+          writer.writeConstraint(FactsWriter.Fact.eventHandler, eventType, method, viewNode.nodeID)
           analyzeAnyHandlerPostVASCO(method)
         }
       }
     }
     for ((attrib, value) <- viewNode.getAppAttrs) {
       if (value != null) {
-        writer.writeConstraint(ConstraintWriter.Constraint.withName(attrib.name()), viewNode.nodeID, value)
+        writer.writeConstraint(FactsWriter.Fact.withName(attrib.name()), viewNode.nodeID, value)
       }
     }
     viewNode.sootClass match {
       case Some(c) =>
         if (!hasContentDescription && hier.isSubclassOf(c, imageViewClass)) {
-          writer.writeConstraint(ConstraintWriter.Constraint.imageHasNoContentDescription, viewNode.nodeID)
+          writer.writeConstraint(FactsWriter.Fact.imageHasNoContentDescription, viewNode.nodeID)
         }
         if (Constants.isAdViewClass(c)) {
-          writer.writeConstraint(ConstraintWriter.Constraint.adViewClass, c)
+          writer.writeConstraint(FactsWriter.Fact.adViewClass, c)
         }
-        writer.writeConstraint(ConstraintWriter.Constraint.viewClass, c.getName, viewNode.nodeID)
-        if (hier.isSubclassOf(c, buttonViewClass)) writer.writeConstraint(ConstraintWriter.Constraint.buttonView, viewNode.nodeID)
-        if (Constants.isDialogClass(c)) writer.writeConstraint(ConstraintWriter.Constraint.dialogView, viewNode.nodeID, icfg.getMethodOf(viewNode.allocSite))
+        writer.writeConstraint(FactsWriter.Fact.viewClass, c.getName, viewNode.nodeID)
+        if (hier.isSubclassOf(c, buttonViewClass)) writer.writeConstraint(FactsWriter.Fact.buttonView, viewNode.nodeID)
+        if (Constants.isDialogClass(c)) writer.writeConstraint(FactsWriter.Fact.dialogView, viewNode.nodeID, icfg.getMethodOf(viewNode.allocSite))
       case None =>
     }
   }
@@ -162,7 +162,7 @@ object GUIAnalysis extends IAnalysis {
           val ownerActivities = aftDomain.getOwnerActivities(handler, endpoint.asInstanceOf[Stmt], node)
           analyzeViewNode(node, ownerActivities)
           for (child <- children) {
-            writer.writeConstraint(ConstraintWriter.Constraint.containsView, node.nodeID, child.nodeID)
+            writer.writeConstraint(FactsWriter.Fact.containsView, node.nodeID, child.nodeID)
             analyzeViewNode(child, ownerActivities)
           }
         }
@@ -351,7 +351,7 @@ object GUIAnalysis extends IAnalysis {
 
   def runIFDS(): Unit = {
     icfg = new JimpleBasedInterproceduralCFG()
-    val analysis = new AbstractValuePropIFDS(icfg, debugMode)
+    val analysis = new AbstractValuePropIFDS(icfg)
     ifdsSolver = new IFDSSolver(analysis)
     System.out.println("======================== IFDS Solver started  ========================")
     val entrypoints = Scene.v().getEntryPoints.asScala.filter(m => {
@@ -373,7 +373,7 @@ object GUIAnalysis extends IAnalysis {
     for (act <- allActivities) {
       for ((handler, event) <- getActivityHandlers(act)) {
         analyzeAnyHandlerPostVASCO(handler)
-        writer.writeConstraint(ConstraintWriter.Constraint.activityEventHandler, event, handler, act)
+        writer.writeConstraint(FactsWriter.Fact.activityEventHandler, event, handler, act)
         analyzeActivityHandlerPostVasco(act, handler)
       }
       val lifecycleMethods = List(
@@ -393,11 +393,11 @@ object GUIAnalysis extends IAnalysis {
     }
 
     if (mainActivity != null) {
-      writer.writeConstraint(ConstraintWriter.Constraint.mainActivity, mainActivity)
+      writer.writeConstraint(FactsWriter.Fact.mainActivity, mainActivity)
     }
     val newlpMainActivity = Scene.v.getSootClassUnsafe("com.revlwp.wallpaper.newlp.MainActivity")
     if (newlpMainActivity != null) {
-      writer.writeConstraint(ConstraintWriter.Constraint.mainActivity, newlpMainActivity)
+      writer.writeConstraint(FactsWriter.Fact.mainActivity, newlpMainActivity)
     } 
 
     for ((className, filters) <- xmlParser.getIntentFilters.asScala) {
@@ -407,7 +407,7 @@ object GUIAnalysis extends IAnalysis {
           for (filter <- filters.asScala) {
             for (action <- filter.getActions.asScala) {
               val m = curCls.getMethodByNameUnsafe("onReceive")
-              if (m != null) writer.writeConstraint(ConstraintWriter.Constraint.intentFilter, action, m)
+              if (m != null) writer.writeConstraint(FactsWriter.Fact.intentFilter, action, m)
             }
           }
         }
@@ -427,15 +427,15 @@ object GUIAnalysis extends IAnalysis {
     }
     val onCreate = hier.virtualDispatch(MethodNames.onActivityCreateSubSig, activityClass)
     if (onCreate != null) {
-      writer.writeConstraint(ConstraintWriter.Constraint.lifecycleMethod, activityClass, "onCreate", onCreate)
+      writer.writeConstraint(FactsWriter.Fact.lifecycleMethod, activityClass, "onCreate", onCreate)
     }
 
     val onDestroy = hier.virtualDispatch(MethodNames.onActivityDestroySubSig, activityClass)
     if (onDestroy != null) {
-      writer.writeConstraint(ConstraintWriter.Constraint.lifecycleMethod, activityClass, "onDestroy", onDestroy)
+      writer.writeConstraint(FactsWriter.Fact.lifecycleMethod, activityClass, "onDestroy", onDestroy)
     }
     if (hier.isSubclassOf(activityClass, prefActivity)) {
-      writer.writeConstraint(ConstraintWriter.Constraint.preferenceActivity, activityClass)
+      writer.writeConstraint(FactsWriter.Fact.preferenceActivity, activityClass)
     }
   }
 
@@ -516,7 +516,7 @@ object GUIAnalysis extends IAnalysis {
                         case None =>
                       }
                       if (!ic3Enabled) {
-                        writer.writeConstraint(ConstraintWriter.Constraint.startActivity, handler, reached, target)
+                        writer.writeConstraint(FactsWriter.Fact.startActivity, handler, reached, target)
                       }
                     }
                     val base = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.getType.asInstanceOf[RefType].getSootClass
@@ -624,13 +624,13 @@ object GUIAnalysis extends IAnalysis {
       if (aftDomain != null) {
         for (((viewNode, eventType), eventHandlers) <- aftDomain.nodeHandlerMap) {
           for (eventHandler <- eventHandlers) {
-            writer.writeConstraint(ConstraintWriter.Constraint.eventHandler, eventType, eventHandler, viewNode.nodeID)
+            writer.writeConstraint(FactsWriter.Fact.eventHandler, eventType, eventHandler, viewNode.nodeID)
             analyzeAnyHandlerPostVASCO(eventHandler)
           }
         }
         for ((act, nodes) <- aftDomain.activityRootViewMap) {
           for (viewNode <- nodes) {
-            writer.writeConstraint(ConstraintWriter.Constraint.rootView, act, viewNode.nodeID)
+            writer.writeConstraint(FactsWriter.Fact.rootView, act, viewNode.nodeID)
           }
         }
       } else {
@@ -648,13 +648,13 @@ object GUIAnalysis extends IAnalysis {
             for (intent <- intents) {
               if (intent.getComponentClass != null && intent.getComponentClass.nonEmpty) {
                 val targetAct = Scene.v().getSootClass(intent.getComponentClass)
-                writer.writeConstraint(ConstraintWriter.Constraint.startActivity, handler, reached, targetAct)
+                writer.writeConstraint(FactsWriter.Fact.startActivity, handler, reached, targetAct)
               }
               if (intent.getAction != null && intent.getAction.equals("android.intent.action.VIEW")) {
                 if (intent.getDataScheme != null && intent.getDataScheme.equals("market")) {
-                  writer.writeConstraint(ConstraintWriter.Constraint.startViewActivityOfMarketHost, handler, reached);
+                  writer.writeConstraint(FactsWriter.Fact.startViewActivityOfMarketHost, handler, reached);
                 } else {
-                  writer.writeConstraint(ConstraintWriter.Constraint.startViewActivityOfSomeHosts, handler, reached);
+                  writer.writeConstraint(FactsWriter.Fact.startViewActivityOfSomeHosts, handler, reached);
                 }
               }
             }
@@ -672,7 +672,7 @@ object GUIAnalysis extends IAnalysis {
                 case instanceInvokeExpr: InstanceInvokeExpr =>
                   val actClass = instanceInvokeExpr.getBase.getType.asInstanceOf[RefType].getSootClass
                   // FIXME: reachability
-                  writer.writeConstraint(ConstraintWriter.Constraint.finishActivity, handler, reached, actClass)
+                  writer.writeConstraint(FactsWriter.Fact.finishActivity, handler, reached, actClass)
                 case _ =>
               }
             }
@@ -682,7 +682,7 @@ object GUIAnalysis extends IAnalysis {
                 if (aftDomain != null) {
                   // NOTE: We can combine the for-loops here
                   for (dialogNode <- aftDomain.getViewNodes(reached, stmt, dialog)) {
-                    writer.writeConstraint(ConstraintWriter.Constraint.dismiss, handler, dialogNode.nodeID)
+                    writer.writeConstraint(FactsWriter.Fact.dismiss, handler, dialogNode.nodeID)
                   }
                 }
               }
@@ -691,22 +691,22 @@ object GUIAnalysis extends IAnalysis {
                 if (aftDomain != null) {
                   val dialogBase = showDialogInvocations(stmt)
                   for (dialogNode <- aftDomain.getViewNodes(reached, stmt, dialogBase)) {
-                    writer.writeConstraint(ConstraintWriter.Constraint.dialogView, dialogNode.nodeID, icfg.getMethodOf(dialogNode.allocSite))
-                    writer.writeConstraint(ConstraintWriter.Constraint.showDialog, handler, reached, dialogNode.nodeID)
+                    writer.writeConstraint(FactsWriter.Fact.dialogView, dialogNode.nodeID, icfg.getMethodOf(dialogNode.allocSite))
+                    writer.writeConstraint(FactsWriter.Fact.showDialog, handler, reached, dialogNode.nodeID)
                     for (handler <- aftDomain.getDialogButtonHandlers(dialogNode)) {
-                      writer.writeConstraint(ConstraintWriter.Constraint.alertDialogFixedButtonHandler, handler, dialogNode.nodeID)
+                      writer.writeConstraint(FactsWriter.Fact.alertDialogFixedButtonHandler, handler, dialogNode.nodeID)
                     }
                   }
                 }
               }
               if (invokedMethod.getSignature == "<com.google.ads.consent.ConsentInformation: void setConsentStatus(com.google.ads.consent.ConsentStatus)>") {
-                writer.writeConstraint(ConstraintWriter.Constraint.setStatus, handler, reached)
+                writer.writeConstraint(FactsWriter.Fact.setStatus, handler, reached)
               }
               if (invokedMethod.getSignature == "<com.google.ads.consent.ConsentInformation: void requestConsentInfoUpdate(java.lang.String[],com.google.ads.consent.ConsentInfoUpdateListener)>") {
                 val updateListenerType = invokeExpr.getArg(1).getType.asInstanceOf[RefType]
                 val onConsentInfoUpdated = updateListenerType.getSootClass.getMethodUnsafe("void onConsentInfoUpdated(com.google.ads.consent.ConsentStatus)")
                 if (onConsentInfoUpdated != null) {
-                  writer.writeConstraint(ConstraintWriter.Constraint.setConsetInfoUpdateHandler, handler, reached)
+                  writer.writeConstraint(FactsWriter.Fact.setConsetInfoUpdateHandler, handler, reached)
                 }
               }
               if (invokedMethod.getSignature == "<android.os.BaseBundle: void putString(java.lang.String,java.lang.String)>") {
@@ -714,7 +714,7 @@ object GUIAnalysis extends IAnalysis {
                   val arg0 = invokeExpr.getArg(0).asInstanceOf[StringConstant].value
                   val arg1 = invokeExpr.getArg(1).asInstanceOf[StringConstant].value
                   if (arg0 == "npa" && arg1 == "1") {
-                    writer.writeConstraint(ConstraintWriter.Constraint.setNPA, handler)
+                    writer.writeConstraint(FactsWriter.Fact.setNPA, handler)
                   }
                 }
               }
@@ -726,7 +726,7 @@ object GUIAnalysis extends IAnalysis {
                 if (aftDomain != null) {
                   for (node <- aftDomain.getViewNodes(reached, stmt, layout)) {
                     for (idName <- getIdName(node)) {
-                      writer.writeConstraint(ConstraintWriter.Constraint.adViewIdName, idName)
+                      writer.writeConstraint(FactsWriter.Fact.adViewIdName, idName)
                     }
                   }
                 }
@@ -734,36 +734,36 @@ object GUIAnalysis extends IAnalysis {
 
               val invokedMethodClass = invokedMethod.getDeclaringClass
               if (invokedMethodClass.getName == "android.media.AudioRecord" && invokedMethod.getName == "read") {
-                writer.writeConstraint(ConstraintWriter.Constraint.readAudio, handler, reached)
+                writer.writeConstraint(FactsWriter.Fact.readAudio, handler, reached)
               }
               if (invokedMethodClass.getName == "java.lang.Class" && invokedMethod.getName == "getDeclaredMethod") {
-                writer.writeConstraint(ConstraintWriter.Constraint.invokesReflectiveAPI, handler, reached)
+                writer.writeConstraint(FactsWriter.Fact.invokesReflectiveAPI, handler, reached)
               }
               if (invokedMethodClass.getName == "com.google.ads.consent.ConsentForm" && invokedMethod.getName == "load") {
-                writer.writeConstraint(ConstraintWriter.Constraint.loadGoogleConsentForm, handler, reached)
+                writer.writeConstraint(FactsWriter.Fact.loadGoogleConsentForm, handler, reached)
               }
               if (invokedMethodClass.getName == "android.webkit.WebView" && invokedMethod.getName == "loadUrl") {
                 var arg0 = "ANY"
                 if (invokeExpr.getArg(0).isInstanceOf[StringConstant]) {
                   arg0 = invokeExpr.getArg(0).asInstanceOf[StringConstant].value
                 }
-                writer.writeConstraint(ConstraintWriter.Constraint.loadWebViewUrl, handler, reached, arg0)
+                writer.writeConstraint(FactsWriter.Fact.loadWebViewUrl, handler, reached, arg0)
               }
               if (invokedMethodClass.getName == "com.tongqu.client.utils.Downloader" && invokedMethod.getName == "getInst") {
-                writer.writeConstraint(ConstraintWriter.Constraint.downloadApp, handler, reached)
+                writer.writeConstraint(FactsWriter.Fact.downloadApp, handler, reached)
               }
               // NOTE: the "reached" field here has a different semantics than gator version
               if (Constants.isAdMethod(invokedMethod)) {
-                writer.writeConstraint(ConstraintWriter.Constraint.showAd, handler, invokedMethod)
+                writer.writeConstraint(FactsWriter.Fact.showAd, handler, invokedMethod)
               }
               if (Constants.isSuspiciousAdMethod(invokedMethod)) {
-                writer.writeConstraint(ConstraintWriter.Constraint.showSuspiciousAd, handler, reached)
+                writer.writeConstraint(FactsWriter.Fact.showSuspiciousAd, handler, reached)
               }
               if (Constants.isInterstitialAdMethod(invokedMethod)) {
-                writer.writeConstraint(ConstraintWriter.Constraint.showInterstitialAd, handler, reached)
+                writer.writeConstraint(FactsWriter.Fact.showInterstitialAd, handler, reached)
               }
               if (Constants.isSuspiciousInterstitialAdMethod(invokedMethod)) {
-                writer.writeConstraint(ConstraintWriter.Constraint.showSuspiciousInterstitialAd, handler, reached)
+                writer.writeConstraint(FactsWriter.Fact.showSuspiciousInterstitialAd, handler, reached)
               }
             }
           }
@@ -1000,15 +1000,15 @@ object GUIAnalysis extends IAnalysis {
 
     instrumentAllMethods()
 
-    writer = new ConstraintWriter(outputPath)
+    writer = new FactsWriter(outputPath)
 
     for (service <- xmlParser.getServices.asScala) {
       if (service != null) {
         val curCls = Scene.v.getSootClassUnsafe(service)
         if (curCls != null && curCls.isConcrete) {
-          writer.writeConstraint(ConstraintWriter.Constraint.serviceClass, curCls)
+          writer.writeConstraint(FactsWriter.Fact.serviceClass, curCls)
           val names = curCls.getName.split("\\.")
-          writer.writeConstraint(ConstraintWriter.Constraint.serviceClassLastName, curCls, names.last)
+          writer.writeConstraint(FactsWriter.Fact.serviceClassLastName, curCls, names.last)
         }
       }
     }

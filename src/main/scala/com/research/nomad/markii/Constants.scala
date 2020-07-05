@@ -175,7 +175,7 @@ object Constants {
     false
   }
 
-  def isInterstitialAdMethod(m: SootMethod) = {
+  def isInterstitialAdMethod(m: SootMethod): Boolean = {
     val methodName = m.getName.toLowerCase
     val className = m.getDeclaringClass.getName.toLowerCase
     val hasVerb = methodName.contains("show")
@@ -183,7 +183,7 @@ object Constants {
     (!methodName.startsWith("on")) && (!methodName.startsWith("maybe")) && hasNoun && hasVerb
   }
 
-  def isSuspiciousInterstitialAdMethod(m: SootMethod) = {
+  def isSuspiciousInterstitialAdMethod(m: SootMethod): Boolean = {
     val methodName = m.getName.toLowerCase
     val hasVerb = methodName.contains("load")
     val hasNoun = methodName.contains("interstitial")

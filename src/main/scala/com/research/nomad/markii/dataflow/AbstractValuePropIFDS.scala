@@ -17,11 +17,12 @@ import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
 /**
- * Some intent analysis and allocation analysis
- * @param icfg
- * @param recordAbstractions
+ * Implementation of abstract value propagation for IFDS DFA framework. Currently only implements:
+ * - Simple intent analysis
+ *
+ * @param icfg: interprocedural control-flow graph
  */
-class AbstractValuePropIFDS(val icfg: InterproceduralCFG[soot.Unit, SootMethod], val recordAbstractions: Boolean)
+class AbstractValuePropIFDS(val icfg: InterproceduralCFG[soot.Unit, SootMethod])
   extends DefaultJimpleIFDSTabulationProblem[(Value, Set[AbstractValue]), InterproceduralCFG[soot.Unit, SootMethod]](icfg) {
   type Domain = (Value, Set[AbstractValue])
   private val id = Identity.v[Domain]()
@@ -30,6 +31,7 @@ class AbstractValuePropIFDS(val icfg: InterproceduralCFG[soot.Unit, SootMethod],
   val visitedMethods = new mutable.TreeSet[SootMethod]()(Ordering.by(_.toString()))
 
   private def putUnitAbstractions(u: soot.Unit, abstraction: Domain): Unit = {
+    // TODO: record abstraction for debugging purpose
     visitedMethods.add(interproceduralCFG.getMethodOf(u))
   }
 

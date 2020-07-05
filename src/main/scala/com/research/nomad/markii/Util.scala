@@ -8,6 +8,13 @@ import soot.SootMethod
 import soot.jimple.InvokeExpr
 
 object Util {
+  /**
+   * getMethod will throw exception sometimes...
+   *
+   * FIXME: upgrade Soot
+   * @param invokeExpr
+   * @return
+   */
   def getMethodUnsafe(invokeExpr: InvokeExpr): SootMethod = {
     try {
       invokeExpr.getMethod

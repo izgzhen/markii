@@ -16,13 +16,10 @@ import java.nio.file.Paths
 
 import scala.collection.mutable
 
-/**
- * https://souffle-lang.github.io/simple
- */
-object ConstraintWriter {
+object FactsWriter {
   // FIXME (minor): Use sum type and reflection
-  object Constraint extends Enumeration {
-    type Constraint = Value
+  object Fact extends Enumeration {
+    type Fact = Value
     val
       //----- View properties -----//
       idName,
@@ -51,13 +48,11 @@ object ConstraintWriter {
       dismiss,
       intentFilter,
 
-      // TODO: we will NOT use gator intent analysis as a fallback. We will have our own fallback
       startActivity,
       startViewActivityOfSomeHosts,
       startViewActivityOfMarketHost,
 
       //----- Value properties and Behaviors -----//
-      // TODO:
       buttonView, lifecycleMethod, preferenceActivity, dialogView,
       setStatus, setConsetInfoUpdateHandler, setNPA, readAudio, loadGoogleConsentForm,
       recordButton, loadWebViewUrl, adViewClass, serviceClass, adViewIdName,
@@ -68,19 +63,24 @@ object ConstraintWriter {
   }
 }
 
-class ConstraintWriter(val factDir: String) { // Create facts directory
+/**
+ * Write facts in the input format for Souffle solver (https://souffle-lang.github.io/simple)
+ *
+ * @param factDir: Directory for facts. Created on initialization.
+ */
+class FactsWriter(val factDir: String) {
   private val writers = mutable.Map[String, BufferedWriter]()
   private val written = mutable.Set[(String, String)]()
   private val nameCounter = mutable.Map[String, Int]()
 
   Files.createDirectories(Paths.get(factDir))
-  for (constraint <- ConstraintWriter.Constraint.values) {
+  for (constraint <- FactsWriter.Fact.values) {
     writers.put(constraint.toString, new BufferedWriter(new FileWriter(factDir + "/" + constraint.toString + ".facts")))
   }
 
   def getNameCounter: Map[String, Int] = nameCounter.toMap
 
-  def writeConstraint(constraint: ConstraintWriter.Constraint.Value, args: Any*): Unit = {
+  def writeConstraint(constraint: FactsWriter.Fact.Value, args: Any*): Unit = {
     val builder = new StringBuilder
     var noTab = true
     for (arg <- args) {
@@ -111,17 +111,17 @@ class ConstraintWriter(val factDir: String) { // Create facts directory
     }
   }
 
-  def writeDimensionConstraint(constraint: ConstraintWriter.Constraint.Value, property: String, id: Int): Unit = {
+  def writeDimensionConstraint(constraint: FactsWriter.Fact.Value, property: String, id: Int): Unit = {
     if (property.endsWith("dip")) {
       val dipIndex = property.indexOf("dip")
       val x = property.substring(0, dipIndex).toFloat
-      writeConstraint(ConstraintWriter.Constraint.withName(constraint.toString + "DIP"), x.round, id)
+      writeConstraint(FactsWriter.Fact.withName(constraint.toString + "DIP"), x.round, id)
       return
     }
     if (property.endsWith("sp")) {
       val spIndex = property.indexOf("sp")
       val x = property.substring(0, spIndex).toFloat
-      writeConstraint(ConstraintWriter.Constraint.withName(constraint.toString + "SP"), x.round, id)
+      writeConstraint(FactsWriter.Fact.withName(constraint.toString + "SP"), x.round, id)
       return
     }
     writeConstraint(constraint, property, id)
