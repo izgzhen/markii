@@ -8,7 +8,7 @@ import java.io.PrintWriter
 
 import com.research.nomad.markii.dataflow.AbsNode.ViewNode
 import com.research.nomad.markii.dataflow.{AFTDomain, AbstractValue, AbstractValuePropIFDS, AbstractValuePropVASCO}
-import com.research.nomad.markii.instrument.DialogInitInstrument
+import com.research.nomad.markii.instrument.{DialogCreateInstrument, DialogInitInstrument}
 import heros.InterproceduralCFG
 import heros.solver.IFDSSolver
 import io.github.izgzhen.msbase.IOUtil
@@ -440,19 +440,18 @@ object GUIAnalysis extends IAnalysis {
               if (invokedMethod.getSubSignature == "void showDialog(int)") {
                 invokeExpr.getArg(0) match {
                   case intConstant: IntConstant =>
-                    if (showCreateDialog.contains(reached.getDeclaringClass) &&
-                      showCreateDialog(reached.getDeclaringClass).contains(intConstant.value)) {
-                      val createMethod = showCreateDialog(reached.getDeclaringClass)(intConstant.value)
-
-                      DynamicCFG.getRunnerOfDialog(reached.getDeclaringClass, createMethod, intConstant) match {
-                        case Some((runner, internalInvocation)) =>
-                          val invocation = Jimple.v().newInvokeStmt(Jimple.v().newVirtualInvokeExpr(reached.getActiveBody.getThisLocal, runner.method.makeRef()))
-                          CallGraphManager.updateCall(reached, stmt, invocation, runner.method, Some(handler))
-                          swaps.put(stmt, invocation)
-                          startWindowStmts.add(invocation)
-                          showDialogInvocations.put(internalInvocation, runner.view)
-                        case None =>
-                      }
+                    DialogCreateInstrument.getShowInvocationOfCreateDialog(reached, intConstant.value) match {
+                      case Some(createMethod) =>
+                        DynamicCFG.getRunnerOfDialog(reached.getDeclaringClass, createMethod, intConstant) match {
+                          case Some((runner, internalInvocation)) =>
+                            val invocation = Jimple.v().newInvokeStmt(Jimple.v().newVirtualInvokeExpr(reached.getActiveBody.getThisLocal, runner.method.makeRef()))
+                            CallGraphManager.updateCall(reached, stmt, invocation, runner.method, Some(handler))
+                            swaps.put(stmt, invocation)
+                            startWindowStmts.add(invocation)
+                            showDialogInvocations.put(internalInvocation, runner.view)
+                          case None =>
+                        }
+                      case _ =>
                     }
                   case _ =>
                 }
@@ -655,78 +654,6 @@ object GUIAnalysis extends IAnalysis {
     Scene.v.getCallGraph.edgesOutOf(Scene.v.getMethod(methodSig)).asScala.map(_.getTgt.method).toList
   }
 
-  private val showCreateDialog = mutable.Map[SootClass, mutable.Map[Int, SootMethod]]()
-
-  private def copyMethod(method: SootMethod, suffix: String): SootMethod = {
-    val newMethod = new SootMethod(method.getName + suffix, method.getParameterTypes, method.getReturnType, method.getModifiers)
-    val newBody = method.getActiveBody.asInstanceOf[JimpleBody].clone().asInstanceOf[Body]
-    newMethod.setActiveBody(newBody)
-    newMethod
-  }
-
-  private def pruneFirstLookupSwitchExcept(method: SootMethod, i: Int): Unit = {
-    val paramLocal = method.getActiveBody.getParameterLocal(0)
-    for (unit <- method.getActiveBody.getUnits.asScala) {
-      unit match {
-        case lookupSwitchStmt: LookupSwitchStmt =>
-          assert(lookupSwitchStmt.getKey.equivTo(paramLocal))
-          for ((value, idx) <- lookupSwitchStmt.getLookupValues.asScala.zipWithIndex) {
-            if (value.value != i) {
-              lookupSwitchStmt.setTarget(idx, lookupSwitchStmt.getDefaultTarget)
-            }
-          }
-          return
-        case _ =>
-      }
-    }
-    throw new Exception("No lookup")
-  }
-
-
-  private def getIfTarget(method: SootMethod, i: Int): Stmt = {
-    val paramLocal = method.getActiveBody.getParameterLocal(0)
-    for (unit <- method.getActiveBody.getUnits.asScala) {
-      unit match {
-        case ifStmt: IfStmt =>
-          ifStmt.getCondition match {
-            case eqExpr: EqExpr =>
-              if (eqExpr.getOp1.equivTo(paramLocal) && eqExpr.getOp2.asInstanceOf[IntConstant].value == i) {
-                return ifStmt.getTarget
-              }
-          }
-        case _ =>
-      }
-    }
-    null
-  }
-
-  private def pruneIfExcept(method: SootMethod, i: Int): Unit = {
-    val paramLocal = method.getActiveBody.getParameterLocal(0)
-    val iTarget = getIfTarget(method, i)
-    assert(iTarget != null)
-    for (unit <- method.getActiveBody.getUnits.asScala) {
-      unit match {
-        case ifStmt: IfStmt =>
-          ifStmt.getCondition match {
-            case eqExpr: EqExpr =>
-              if (eqExpr.getOp1.equivTo(paramLocal) && eqExpr.getOp2.asInstanceOf[IntConstant].value != i) {
-                ifStmt.setTarget(iTarget)
-              }
-          }
-        case _ =>
-      }
-    }
-  }
-
-  def instrumentAllDialogCreate(): Unit = {
-    for (activity <- allActivities) {
-      val method = activity.getMethodUnsafe("android.app.Dialog onCreateDialog(int)")
-      if (method != null) {
-        instrumentDialogCreate(method, activity)
-      }
-    }
-  }
-
   def instrumentAllMethods(): Unit = {
     for (activity <- allActivities) {
       for (method <- activity.getMethods.asScala) {
@@ -734,44 +661,6 @@ object GUIAnalysis extends IAnalysis {
           // FIXME: remove the mainActivity workaround by fixing this
           // instrumentStartTimer(method)
         }
-      }
-    }
-  }
-
-  def instrumentDialogCreate(method: SootMethod, activity: SootClass): Unit = {
-    val paramLocal = method.getActiveBody.getParameterLocal(0)
-    var hasIfStmt = false
-    var hasSuperOnCreateDialog = false
-    // FIXME: this structure is not working well -- esp. when the onCreateDialog is just a wrapper of some other
-    //        invocation
-    for (unit <- method.getActiveBody.getUnits.asScala) {
-      unit match {
-        case lookupSwitchStmt: LookupSwitchStmt =>
-          assert(lookupSwitchStmt.getKey.equivTo(paramLocal))
-          for (value <- lookupSwitchStmt.getLookupValues.asScala) {
-            val newMethod = copyMethod(method, "_" + value.value)
-            pruneFirstLookupSwitchExcept(newMethod, value.value)
-            activity.addMethod(newMethod)
-            showCreateDialog.getOrElseUpdate(activity, mutable.Map()).put(value.value, newMethod)
-          }
-          return
-        case ifStmt: IfStmt =>
-          ifStmt.getCondition match {
-            case eqExpr: EqExpr =>
-              if (eqExpr.getOp1.equivTo(paramLocal)) {
-                hasIfStmt = true
-                val i = eqExpr.getOp2.asInstanceOf[IntConstant].value
-                val newMethod = copyMethod(method, "_" + i)
-                pruneIfExcept(newMethod, i)
-                activity.addMethod(newMethod)
-                showCreateDialog.getOrElseUpdate(activity, mutable.Map()).put(i, newMethod)
-              }
-            case _ =>
-          }
-        case stmt: Stmt =>
-          if (stmt.containsInvokeExpr() && stmt.getInvokeExpr.getMethod.getName == "onCreateDialog") {
-            hasSuperOnCreateDialog = true
-          }
       }
     }
   }
@@ -799,7 +688,7 @@ object GUIAnalysis extends IAnalysis {
     // IFDS must run before VASCO since VASCO depends on IFDS as pre-analysis
     runIFDS()
 
-    instrumentAllDialogCreate()
+    DialogCreateInstrument.run(allActivities)
 
     instrumentAllMethods()
 
