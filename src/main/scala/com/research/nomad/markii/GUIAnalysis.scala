@@ -1,9 +1,13 @@
+/*
+ * Copyright (c) 2020. Zhen Zhang
+ */
+
 package com.research.nomad.markii
 
 import java.io.{File, PrintWriter}
 
 import com.research.nomad.markii.dataflow.AbsNode.ViewNode
-import com.research.nomad.markii.dataflow.{AFTDomain, AbstractValue, AbstractValueProp, AbstractValuePropVasco}
+import com.research.nomad.markii.dataflow.{AFTDomain, AbstractValue, AbstractValuePropIFDS, AbstractValuePropVASCO}
 import heros.InterproceduralCFG
 import heros.solver.IFDSSolver
 import io.github.izgzhen.msbase.IOUtil
@@ -26,7 +30,6 @@ import scala.jdk.CollectionConverters._
 
 case class Runner(method: SootMethod, loopExit: soot.Unit, view: Local)
 
-/* Created at 3/8/20 by zhen */
 object GUIAnalysis extends IAnalysis {
   val hier: Hierarchy = Hierarchy.v()
   val xmlParser: XMLParser = XMLParser.Factory.getXMLParser
@@ -305,7 +308,7 @@ object GUIAnalysis extends IAnalysis {
   def runVASCO(): Unit = {
     // NOTE: over-approx of entrypoints
     val entrypointsFull = allActivities.flatMap(DynamicCFG.getRunner).map(_.method).toList
-    val vascoProp = new AbstractValuePropVasco(entrypointsFull)
+    val vascoProp = new AbstractValuePropVASCO(entrypointsFull)
     println("VASCO starts")
     vascoProp.doAnalysis()
     println("VASCO finishes")
@@ -348,7 +351,7 @@ object GUIAnalysis extends IAnalysis {
 
   def runIFDS(): Unit = {
     icfg = new JimpleBasedInterproceduralCFG()
-    val analysis = new AbstractValueProp(icfg, debugMode)
+    val analysis = new AbstractValuePropIFDS(icfg, debugMode)
     ifdsSolver = new IFDSSolver(analysis)
     System.out.println("======================== IFDS Solver started  ========================")
     val entrypoints = Scene.v().getEntryPoints.asScala.filter(m => {

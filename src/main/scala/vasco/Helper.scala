@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2020. Zhen Zhang
+ */
+
 package vasco
 
 import java.util.concurrent.ConcurrentHashMap

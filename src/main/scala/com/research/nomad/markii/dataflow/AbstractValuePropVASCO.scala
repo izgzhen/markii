@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2020. Zhen Zhang
+ */
+
 package com.research.nomad.markii.dataflow
 
 import java.time.Instant
@@ -16,7 +20,11 @@ import vasco.{Context, ForwardInterProceduralAnalysis, ProgramRepresentation}
 
 import scala.collection.mutable
 
-class AbstractValuePropVasco(entryPoints: List[SootMethod])
+/**
+ * Implementation of abstract value propagation for VASCO DFA framework
+ * @param entryPoints: entry point methods
+ */
+class AbstractValuePropVASCO(entryPoints: List[SootMethod])
   extends ForwardInterProceduralAnalysis[SootMethod, soot.Unit, AFTDomain] {
 
   type Domain = AFTDomain
@@ -162,7 +170,6 @@ class AbstractValuePropVasco(entryPoints: List[SootMethod])
   private val logStateInterval = 1000
 
   private def logState(method: SootMethod, unit: soot.Unit, d: Domain): Unit = {
-//    println(method, unit, d.sizeSummary)
     if (!GUIAnalysis.debugMode) return
     if (logStateCounter == logStateInterval) {
       println(logStateMethodCounters.toList.sortBy(_._2).takeRight(5))

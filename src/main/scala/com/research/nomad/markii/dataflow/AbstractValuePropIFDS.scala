@@ -1,6 +1,8 @@
-package com.research.nomad.markii.dataflow
+/*
+ * Copyright (c) 2020. Zhen Zhang
+ */
 
-/* Created at 3/12/20 by zhen */
+package com.research.nomad.markii.dataflow
 
 import java.util
 
@@ -19,7 +21,7 @@ import scala.jdk.CollectionConverters._
  * @param icfg
  * @param recordAbstractions
  */
-class AbstractValueProp(val icfg: InterproceduralCFG[soot.Unit, SootMethod], val recordAbstractions: Boolean)
+class AbstractValuePropIFDS(val icfg: InterproceduralCFG[soot.Unit, SootMethod], val recordAbstractions: Boolean)
   extends DefaultJimpleIFDSTabulationProblem[(Value, Set[AbstractValue]), InterproceduralCFG[soot.Unit, SootMethod]](icfg) {
   type Domain = (Value, Set[AbstractValue])
   private val id = Identity.v[Domain]()

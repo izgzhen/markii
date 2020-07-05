@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2020. Zhen Zhang
+ */
+
 package com.research.nomad.markii
 
 import org.apache.commons.text.StringEscapeUtils

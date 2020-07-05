@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2020. Zhen Zhang
+ */
+
 package com.research.nomad.markii.dataflow
 
 import scala.collection.mutable
@@ -5,9 +9,9 @@ import scala.collection.mutable
 /**
  * Access path models an pointer with data and sub-fields
  *
- * @param data
- * @param fields
- * @tparam D
+ * @param data: Data associated with the current access-path
+ * @param fields: fields to children access paths
+ * @tparam D: Abstract data type
  */
 case class AccessPath[D](data: Option[Set[D]], fields: Map[String, AccessPath[D]] = Map[String, AccessPath[D]](), maxDepth: Int = 2) {
   def merge(path: AccessPath[D]): AccessPath[D] = {

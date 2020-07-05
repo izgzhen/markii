@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2020. Zhen Zhang
+ */
+
 package com.research.nomad.markii.dataflow
 
 import java.util
@@ -12,6 +16,10 @@ import vasco.soot.DefaultJimpleRepresentation
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
+/**
+ * Customized Program Representation for VASCO data-flow anlaysis
+ * @param entryPoints: entry point methods of DFA
+ */
 class AFTProgramRepresentation(entryPoints: List[SootMethod]) extends ProgramRepresentation[SootMethod, soot.Unit] {
   private val default = DefaultJimpleRepresentation.v
   private val cfgCache = mutable.Map[SootMethod, DirectedGraph[soot.Unit]]()

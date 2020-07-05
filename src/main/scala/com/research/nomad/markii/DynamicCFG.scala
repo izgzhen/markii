@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2020. Zhen Zhang
+ */
+
 package com.research.nomad.markii
 
 import com.research.nomad.markii.dataflow.AbsNode.ViewNode
@@ -10,7 +14,6 @@ import soot.jimple.toolkits.callgraph.Edge
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
-/* Created at 3/25/20 by zhen */
 // TODO: combine this with FlowDroid's hardness -- which is better
 object DynamicCFG {
   private var utilsBaseClass: SootClass = null

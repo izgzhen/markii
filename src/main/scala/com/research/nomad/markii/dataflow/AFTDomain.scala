@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2020. Zhen Zhang
+ */
+
 package com.research.nomad.markii.dataflow
 
 import com.research.nomad.markii.{Constants, GUIAnalysis}
@@ -15,7 +19,8 @@ object DialogButtonType extends Enumeration {
 }
 
 /**
- * UPDATE STRUCTURAL METHODS when the data structure is changed
+ * Data domain of Abstract Flow Tree
+ * NOTE: UPDATE STRUCTURAL METHODS when the data structure is changed
  */
 case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsNode]],
                      private val globalNodeMap: Map[SootClass, AccessPath[AbsNode]],

@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2020. Zhen Zhang
+ */
+
 package com.research.nomad.markii
 
 import java.util.regex.Pattern
@@ -6,7 +10,6 @@ import com.research.nomad.markii.dataflow.DialogButtonType
 import presto.android.MethodNames
 import soot.{Scene, SootClass, SootMethod}
 
-/* Created at 3/25/20 by zhen */
 object Constants {
   val UNKNOWN = "UNKNOWN"
 

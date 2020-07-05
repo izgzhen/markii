@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2020. Zhen Zhang
+ */
+
 package com.research.nomad.markii.dataflow
 
 import presto.android.gui.listener.EventType
@@ -8,9 +12,20 @@ import soot.jimple.Stmt
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
+/**
+ * Node in Abstract Flow Tree
+ */
 sealed abstract class AbsNode extends Product with Serializable
 
 object AbsNode {
+  /**
+   * Node for a view element
+   * @param allocSite: Allocation statement
+   * @param id: Possible resource ids
+   * @param sootClass: Associated class, e.g. android.widget.Button
+   * @param attributes: Attribute values
+   * @param androidView: Associated AndroidView from parsed XML
+   */
   final case class ViewNode(allocSite: Stmt,
                             id: Set[Int] = Set(),
                             sootClass: Option[SootClass] = None,

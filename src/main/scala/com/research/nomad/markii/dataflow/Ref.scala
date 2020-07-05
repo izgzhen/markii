@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2020. Zhen Zhang
+ */
+
 package com.research.nomad.markii.dataflow
 
 import soot.{Local, SootClass, Value}
@@ -28,6 +32,7 @@ object Ref {
     ref.field(staticFieldRef.getField.getName)
   }
 
+  @scala.annotation.tailrec
   def from(value: Value): Ref = {
     value match {
       case staticFieldRef: StaticFieldRef => from(staticFieldRef)

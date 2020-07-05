@@ -1,8 +1,11 @@
+/*
+ * Copyright (c) 2020. Zhen Zhang
+ */
+
 package com.research.nomad.markii.dataflow
 
 import soot.SootClass
 
-/* Created at 3/12/20 by zhen */
 class AbstractIntent(val targets: Set[SootClass] = Set(),
                      val actions: Set[String] = Set()) {
   def withActions(newActions: Set[String]): AbstractIntent = {

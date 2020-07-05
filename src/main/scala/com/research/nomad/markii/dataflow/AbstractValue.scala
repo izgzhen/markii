@@ -1,8 +1,9 @@
+/*
+ * Copyright (c) 2020. Zhen Zhang
+ */
+
 package com.research.nomad.markii.dataflow
 
-import soot.jimple.InvokeExpr
-
-/* Created at 3/20/20 by zhen */
 sealed abstract class AbstractValue extends Product with Serializable
 
 object AbstractValue {
