@@ -7,7 +7,7 @@ package com.research.nomad.markii
 import com.research.nomad.markii.dataflow.AbsNode.ViewNode
 import presto.android.Hierarchy
 import presto.android.gui.IDNameExtractor
-import presto.android.xml.XMLParser
+import presto.android.xml.{AndroidView, XMLParser}
 import soot.{Scene, SootClass, SootMethod}
 
 import scala.collection.mutable
@@ -17,10 +17,12 @@ object AppInfo {
   val hier: Hierarchy = Hierarchy.v()
   private val xmlParser: XMLParser = XMLParser.Factory.getXMLParser
 
-  private val allHandlers: mutable.Set[SootMethod] = _
+  private val allHandlers = mutable.Set[SootMethod]()
   val allActivities: Set[SootClass] = hier.frameworkManaged.keySet().asScala.filter(c =>
     hier.applicationActivityClasses.contains(c) && !c.isAbstract).toSet
   val mainActivity: SootClass = xmlParser.getMainActivity
+
+  def findViewById(id: Int): AndroidView = xmlParser.findViewById(id)
 
   private def initAllHandlers(): Unit = {
     for (c <- Scene.v().getApplicationClasses.asScala) {

@@ -4,7 +4,7 @@
 
 package com.research.nomad.markii.dataflow
 
-import com.research.nomad.markii.{Constants, GUIAnalysis, PreAnalyses}
+import com.research.nomad.markii.{AppInfo, Constants, GUIAnalysis, PreAnalyses}
 import com.research.nomad.markii.dataflow.AbsNode.{ActNode, LayoutParamsNode, ListenerNode, ViewNode}
 import presto.android.gui.listener.EventType
 import presto.android.xml.AndroidView
@@ -230,7 +230,7 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsNode]],
   }
 
   def setContentViewDialog(ctxMethod: SootMethod, stmt: Stmt, dialogLocal: Local, id: Int): AFTDomain = {
-    val androidView = GUIAnalysis.xmlParser.findViewById(id)
+    val androidView = AppInfo.findViewById(id)
     val viewNode = ViewNode(stmt, id = Set(id, androidView.getId.toInt), androidView = androidView)
     inflateAFT(stmt, viewNode, androidView).withEdge(ctxMethod, stmt, dialogLocal, viewNode)
   }
@@ -244,7 +244,7 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsNode]],
   }
 
   def setContentViewAct(stmt: Stmt, actClass: SootClass, id: Int): AFTDomain = {
-    val view = GUIAnalysis.xmlParser.findViewById(id)
+    val view = AppInfo.findViewById(id)
     val viewNode = ViewNode(stmt, id = Set(id, view.getId.toInt), androidView = view)
     inflateAFT(stmt, viewNode, view).copy(
       activityRootViewMap = activityRootViewMap + (actClass -> Set(viewNode))
@@ -273,7 +273,7 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsNode]],
   }
 
   def inflate(contextMethod: SootMethod, stmt: Stmt, id: Int, ref: Ref, parentView: Local, attachToRoot: Boolean): AFTDomain = {
-    val view = GUIAnalysis.xmlParser.findViewById(id)
+    val view = AppInfo.findViewById(id)
     val viewNode = ViewNode(stmt, id = Set(id), androidView = view)
     val inflated = inflateAFT(stmt, viewNode, view).withNode(ref, viewNode)
     if (attachToRoot) {

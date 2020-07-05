@@ -59,13 +59,13 @@ object Constants {
     androidDialogOnClickListenerClass
   ) ++ viewEventListenerClasses ++ activityClasses
 
-  def isActivity(c: SootClass): Boolean = activityClasses.exists(activityClass => GUIAnalysis.hier.isSubclassOf(c, activityClass))
-  def isService(c: SootClass): Boolean = GUIAnalysis.hier.isSubclassOf(c, serviceClass)
-  def isReceiver(c: SootClass): Boolean = GUIAnalysis.hier.isSubclassOf(c, receiverClass)
-  def isDialogOnClickListener(c: SootClass): Boolean = GUIAnalysis.hier.isSubclassOf(c, androidDialogOnClickListenerClass)
+  def isActivity(c: SootClass): Boolean = activityClasses.exists(activityClass => AppInfo.hier.isSubclassOf(c, activityClass))
+  def isService(c: SootClass): Boolean = AppInfo.hier.isSubclassOf(c, serviceClass)
+  def isReceiver(c: SootClass): Boolean = AppInfo.hier.isSubclassOf(c, receiverClass)
+  def isDialogOnClickListener(c: SootClass): Boolean = AppInfo.hier.isSubclassOf(c, androidDialogOnClickListenerClass)
 
   def isViewEventListenerClass(sootClass: SootClass): Boolean =
-    viewEventListenerClasses.exists(cls => GUIAnalysis.hier.isSubclassOf(sootClass, cls))
+    viewEventListenerClasses.exists(cls => AppInfo.hier.isSubclassOf(sootClass, cls))
 
   private val dialogClassNames = List(
     "android.support.v7.app.AlertDialog",
@@ -75,10 +75,10 @@ object Constants {
   )
 
   def isDialogBuilderClass(sootClass: SootClass): Boolean =
-    dialogClassNames.exists(x => GUIAnalysis.hier.isSubclassOf(sootClass, Scene.v().getSootClass(x + "$Builder")))
+    dialogClassNames.exists(x => AppInfo.hier.isSubclassOf(sootClass, Scene.v().getSootClass(x + "$Builder")))
 
   def isDialogClass(sootClass: SootClass): Boolean =
-    dialogClassNames.exists(x => GUIAnalysis.hier.isSubclassOf(sootClass, Scene.v().getSootClass(x)))
+    dialogClassNames.exists(x => AppInfo.hier.isSubclassOf(sootClass, Scene.v().getSootClass(x)))
 
   def isDialogBuilderCreate(sig: String): Boolean =
     dialogClassNames.exists(x => sig == "<" + x + "$Builder: " + x + " create()>")

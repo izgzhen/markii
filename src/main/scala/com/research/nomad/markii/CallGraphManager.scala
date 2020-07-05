@@ -4,7 +4,6 @@
 
 package com.research.nomad.markii
 
-import com.research.nomad.markii.GUIAnalysis.hier
 import presto.android.Configs
 import soot.{RefType, Scene, SootMethod}
 import soot.jimple.{InstanceInvokeExpr, Stmt}
@@ -42,15 +41,15 @@ object CallGraphManager {
                     case instanceInvokeExpr: InstanceInvokeExpr =>
                       instanceInvokeExpr.getBase.getType match {
                         case refType: RefType =>
-                          val dispatchedTarget = hier.virtualDispatch(invokedTarget, refType.getSootClass)
+                          val dispatchedTarget = AppInfo.hier.virtualDispatch(invokedTarget, refType.getSootClass)
                           if (dispatchedTarget != null && isTargetMethod(dispatchedTarget)) {
                             dispatchedTargets.add(dispatchedTarget)
                           } else {
-                            val subTypes = hier.getConcreteSubtypes(refType.getSootClass).asScala
+                            val subTypes = AppInfo.hier.getConcreteSubtypes(refType.getSootClass).asScala
                             if (subTypes.size < 5) { // FIXME: avoid over-explosion....
                               for (subClass <- subTypes) {
                                 if (subClass != null && subClass.isConcrete) {
-                                  val dispatchedTarget = hier.virtualDispatch(invokedTarget, subClass)
+                                  val dispatchedTarget = AppInfo.hier.virtualDispatch(invokedTarget, subClass)
                                   if (dispatchedTarget != null) {
                                     dispatchedTargets.add(dispatchedTarget)
                                   }
@@ -78,7 +77,7 @@ object CallGraphManager {
                 }
                 if (target.getSignature == "<android.os.Handler: boolean postDelayed(java.lang.Runnable,long)>") {
                   val runnableType = stmt.getInvokeExpr.getArg(0).getType.asInstanceOf[RefType]
-                  val run = hier.virtualDispatch(Scene.v().getMethod("<java.lang.Runnable: void run()>"), runnableType.getSootClass)
+                  val run = AppInfo.hier.virtualDispatch(Scene.v().getMethod("<java.lang.Runnable: void run()>"), runnableType.getSootClass)
                   if (run != null) {
                     extraEdgeOutMap.getOrElseUpdate(m, mutable.Set()).add(run)
                   } else {

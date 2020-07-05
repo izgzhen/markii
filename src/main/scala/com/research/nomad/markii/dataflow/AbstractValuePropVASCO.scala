@@ -171,7 +171,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
   private val logStateInterval = 1000
 
   private def logState(method: SootMethod, unit: soot.Unit, d: Domain): Unit = {
-    if (!GUIAnalysis.debugMode) return
+    if (!GUIAnalysis.isDebugMode) return
     if (logStateCounter == logStateInterval) {
       println(logStateMethodCounters.toList.sortBy(_._2).takeRight(5))
       logStateMethodCounters = mutable.Map[SootMethod, Int]()

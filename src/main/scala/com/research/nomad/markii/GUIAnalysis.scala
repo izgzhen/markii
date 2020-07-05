@@ -35,8 +35,9 @@ object GUIAnalysis extends IAnalysis {
   private val analyzedMethods = mutable.Set[SootMethod]()
   private val analyzedHandlers = mutable.Set[SootMethod]()
 
-  var outputPath = "/tmp/markii-facts/"
-  var debugMode = false
+  private var outputPath = "/tmp/markii-facts/"
+  private var debugMode = false
+  def isDebugMode: Boolean = debugMode
 
   private var ifdsSolver: IFDSSolver[soot.Unit, (Value, Set[AbstractValue]), SootMethod, InterproceduralCFG[soot.Unit, SootMethod]] = _
   private var icfg: JimpleBasedInterproceduralCFG = _
@@ -237,16 +238,6 @@ object GUIAnalysis extends IAnalysis {
     }
 
     debugMode = Configs.clientParams.contains("debugMode:true")
-  }
-
-  private def getIfdsResultAt(stmt: Stmt, target: Value): Iterable[AbstractValue] = {
-    ifdsSolver.ifdsResultsAt(stmt).asScala.flatMap { case (tainted, taints) =>
-      if (tainted.equivTo(target)) {
-        taints
-      } else {
-        Set()
-      }
-    }
   }
 
   private def runIFDS(): Unit = {
@@ -482,6 +473,16 @@ object GUIAnalysis extends IAnalysis {
             }
           }
         }
+      }
+    }
+  }
+
+  def getIfdsResultAt(stmt: Stmt, target: Value): Iterable[AbstractValue] = {
+    ifdsSolver.ifdsResultsAt(stmt).asScala.flatMap { case (tainted, taints) =>
+      if (tainted.equivTo(target)) {
+        taints
+      } else {
+        Set()
       }
     }
   }

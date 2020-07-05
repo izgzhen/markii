@@ -4,8 +4,7 @@
 
 package com.research.nomad.markii.instrument
 
-import com.research.nomad.markii.GUIAnalysis.hier
-import com.research.nomad.markii.{Constants, Util}
+import com.research.nomad.markii.{AppInfo, Constants, Util}
 import presto.android.MethodNames
 import soot.{Local, RefType, Scene, SootMethod}
 import soot.jimple.{InstanceInvokeExpr, Jimple, NullConstant, Stmt}
@@ -27,7 +26,7 @@ object DialogInitInstrument {
                   case instanceInvokeExpr: InstanceInvokeExpr if invoked.getName == "<init>" =>
                     val baseClass = instanceInvokeExpr.getBase.getType.asInstanceOf[RefType].getSootClass
                     if (baseClass.isConcrete) {
-                      val onCreate = hier.virtualDispatch(MethodNames.onDialogCreateSubSig, baseClass)
+                      val onCreate = AppInfo.hier.virtualDispatch(MethodNames.onDialogCreateSubSig, baseClass)
                       if (Constants.isDialogClass(baseClass) && onCreate != null && onCreate.isConcrete && onCreate.hasActiveBody) {
                         Some((stmt, instanceInvokeExpr.getBase.asInstanceOf[Local], onCreate))
                       } else {
