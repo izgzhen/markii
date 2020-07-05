@@ -13,12 +13,10 @@ import com.research.nomad.markii.instrument.{AllInstrument, DialogCreateInstrume
 import heros.InterproceduralCFG
 import heros.solver.IFDSSolver
 import io.github.izgzhen.msbase.IOUtil
-import presto.android.gui.IDNameExtractor
 import presto.android.gui.wtg.util.WTGUtil
-import presto.android.{Configs, Debug, Hierarchy, MethodNames}
-import presto.android.xml.{AndroidView, XMLParser}
-import soot.jimple.toolkits.callgraph.Edge
-import soot.jimple.{InstanceInvokeExpr, IntConstant, Jimple, Stmt, StringConstant}
+import presto.android.{Configs, Debug, MethodNames}
+import presto.android.xml.AndroidView
+import soot.jimple.{InstanceInvokeExpr, Stmt, StringConstant}
 import soot.jimple.toolkits.ide.icfg.JimpleBasedInterproceduralCFG
 import soot.{Local, RefType, Scene, SootClass, SootMethod, Value}
 import vasco.{DataFlowSolution, Helper}
@@ -32,26 +30,104 @@ case class Runner(method: SootMethod, loopExit: soot.Unit, view: Local)
  * Core GUI Analysis that implement the client interface IAnalysis
  */
 object GUIAnalysis extends IAnalysis {
-  val hier: Hierarchy = Hierarchy.v()
-  val xmlParser: XMLParser = XMLParser.Factory.getXMLParser
   private var writer: FactsWriter = _
 
-  def getIdName(id: Int): Option[String] = {
-    val idName = IDNameExtractor.v.idName(id)
-    if (idName != null && idName.length > 0) {
-      Some(idName)
-    } else {
-      None
+  private val analyzedMethods = mutable.Set[SootMethod]()
+  private val analyzedHandlers = mutable.Set[SootMethod]()
+
+  var outputPath = "/tmp/markii-facts/"
+  var debugMode = false
+
+  private var ifdsSolver: IFDSSolver[soot.Unit, (Value, Set[AbstractValue]), SootMethod, InterproceduralCFG[soot.Unit, SootMethod]] = _
+  private var icfg: JimpleBasedInterproceduralCFG = _
+  private var vascoSolution: DataFlowSolution[soot.Unit, AFTDomain] = _
+
+  override def run(): Unit = {
+    println("Pre-analysis time: " + Debug.v().getExecutionTime + " seconds")
+    println("Mark II")
+    readConfigs()
+    Ic3Manager.init()
+    AppInfo.init()
+
+    DialogInitInstrument.run()
+
+    // TODO: use a proper harness
+    CallGraphManager.patchCallGraph()
+
+    if (debugMode) {
+      dumpCallgraph()
+    }
+
+    CallGraphManager.saveOldCallGraph()
+
+    // IFDS must run before VASCO since VASCO depends on IFDS as pre-analysis
+    runIFDS()
+
+    DialogCreateInstrument.run(AppInfo.allActivities)
+
+    AllInstrument.run(AppInfo.allActivities)
+
+    // Write some constraints and prepare code for VASCO analysis
+    for (handler <- AppInfo.getAllHandlers) {
+      PreVASCO.analyze(handler)
+    }
+
+    writer = new FactsWriter(outputPath)
+
+    for (service <- AppInfo.getServices) {
+      writer.writeConstraint(FactsWriter.Fact.serviceClass, service)
+      val names = service.getName.split("\\.")
+      writer.writeConstraint(FactsWriter.Fact.serviceClassLastName, service, names.last)
+    }
+
+    for ((handler, reached, target) <- PreVASCO.getStartActivityFacts) {
+      writer.writeConstraint(FactsWriter.Fact.startActivity, handler, reached, target)
+    }
+
+    for (activity <- AppInfo.allActivities) {
+      analyzeActivityPreVasco(activity)
+    }
+
+    runVASCO()
+
+    // Write more constraints
+    writeConstraintsPostVASCO()
+
+    // Dump abstractions
+    if (debugMode) {
+      val printWriter = new PrintWriter("/tmp/abstractions.txt")
+      for (m <- analyzedMethods) {
+        printWriter.println("====== Method " + m.getSignature + " =======")
+        printWriter.println(m.getActiveBody)
+        for (unit <- m.getActiveBody.getUnits.asScala) {
+          val abstractions = ifdsSolver.ifdsResultsAt(unit)
+          val aftDomain = vascoSolution.getValueAfter(unit)
+          if ((abstractions != null && abstractions.size() > 0) || (aftDomain != null && aftDomain.nonEmpty)) {
+            if (abstractions != null && abstractions.size() > 0) {
+              for (value <- abstractions.asScala) {
+                for (abstraction <- value._2) {
+                  printWriter.println("\t\t" + value._1 + ": " + abstraction)
+                }
+              }
+            }
+
+            printWriter.println("\tUnit: " + unit)
+            if (aftDomain != null && aftDomain.nonEmpty) {
+              printWriter.println("AFTDomain: ")
+              printWriter.println(aftDomain)
+            }
+
+            printWriter.println()
+          }
+        }
+      }
+      printWriter.close()
     }
   }
 
-  def getIdName(node: ViewNode): Set[String] = {
-    node.id.flatMap(i => getIdName(i))
-  }
-
-  def analyzeViewNode(viewNode: ViewNode, ownerActivities: Set[SootClass]): Unit = {
+  private def analyzeViewNode(viewNode: ViewNode, ownerActivities: Set[SootClass]): Unit = {
     viewNode.id.foreach(id => {
-      getIdName(id) match {
+      AppInfo.getIdName(id) match {
         case Some(idName) =>
           writer.writeConstraint(FactsWriter.Fact.idName, idName, viewNode.nodeID)
         case None =>
@@ -99,20 +175,20 @@ object GUIAnalysis extends IAnalysis {
     }
     viewNode.sootClass match {
       case Some(c) =>
-        if (!hasContentDescription && hier.isSubclassOf(c, Constants.imageViewClass)) {
+        if (!hasContentDescription && AppInfo.hier.isSubclassOf(c, Constants.imageViewClass)) {
           writer.writeConstraint(FactsWriter.Fact.imageHasNoContentDescription, viewNode.nodeID)
         }
         if (Constants.isAdViewClass(c)) {
           writer.writeConstraint(FactsWriter.Fact.adViewClass, c)
         }
         writer.writeConstraint(FactsWriter.Fact.viewClass, c.getName, viewNode.nodeID)
-        if (hier.isSubclassOf(c, Constants.buttonViewClass)) writer.writeConstraint(FactsWriter.Fact.buttonView, viewNode.nodeID)
+        if (AppInfo.hier.isSubclassOf(c, Constants.buttonViewClass)) writer.writeConstraint(FactsWriter.Fact.buttonView, viewNode.nodeID)
         if (Constants.isDialogClass(c)) writer.writeConstraint(FactsWriter.Fact.dialogView, viewNode.nodeID, icfg.getMethodOf(viewNode.allocSite))
       case None =>
     }
   }
 
-  def analyzeActivityHandlerPostVasco(handler: SootMethod): Unit = {
+  private def analyzeActivityHandlerPostVasco(handler: SootMethod): Unit = {
     for (endpoint <- icfg.getEndPointsOf(handler).asScala) {
       val aftDomain = vascoSolution.getValueAfter(endpoint)
       if (aftDomain != null) {
@@ -136,45 +212,16 @@ object GUIAnalysis extends IAnalysis {
     printWriter.close()
   }
 
-  private var allHandlers: Set[SootMethod] = _
-  private val analyzedMethods = mutable.Set[SootMethod]()
 
-  def initAllHandlers(): Set[SootMethod] = {
-    val handlers = mutable.Set[SootMethod]()
-    for (c <- Scene.v().getApplicationClasses.asScala) {
-      if (c.isConcrete && Constants.guiClasses.exists(listener => hier.isSubclassOf(c, listener))) {
-        for (m <- c.getMethods.asScala) {
-          if (m.hasActiveBody && m.getName.startsWith("on")) {
-            handlers.add(m)
-          }
-        }
-      }
-    }
-
-    for (receiver <- xmlParser.getReceivers.asScala) {
-      if (receiver != null) {
-        val curCls = Scene.v.getSootClassUnsafe(receiver)
-        if (curCls != null && curCls.isConcrete && hier.isSubclassOf(curCls, Scene.v().getSootClass("android.content.BroadcastReceiver"))) {
-          val m = curCls.getMethodByNameUnsafe("onReceive")
-          if (m != null && m.hasActiveBody) {
-            handlers.add(m)
-          }
-        }
-      }
-    }
-    handlers.toSet
-  }
-
-  private var vascoSolution: DataFlowSolution[soot.Unit, AFTDomain] = _
-  def runVASCO(): Unit = {
+  private def runVASCO(): Unit = {
     // NOTE: over-approx of entrypoints
-    val entrypointsFull = allActivities.flatMap(DynamicCFG.getRunner).map(_.method).toList
+    val entrypointsFull = AppInfo.allActivities.flatMap(DynamicCFG.getRunner).map(_.method).toList
     val vascoProp = new AbstractValuePropVASCO(entrypointsFull)
     println("VASCO starts")
     vascoProp.doAnalysis()
     println("VASCO finishes")
 
-    analyzedMethods.addAll(allHandlers)
+    analyzedMethods.addAll(AppInfo.getAllHandlers)
     analyzedMethods.addAll(vascoProp.getMethods.asScala)
     if (sys.env.contains("BATCH_RUN")) {
       vascoSolution = Helper.getMeetOverValidPathsSolution(vascoProp)
@@ -184,10 +231,7 @@ object GUIAnalysis extends IAnalysis {
     println("VASCO solution generated")
   }
 
-  var outputPath = "/tmp/markii-facts/"
-  var debugMode = false
-
-  def readConfigs(): Unit = {
+  private def readConfigs(): Unit = {
     for (param <- Configs.clientParams.asScala) {
       if (param.startsWith("output:")) outputPath = param.substring("output:".length)
     }
@@ -195,10 +239,7 @@ object GUIAnalysis extends IAnalysis {
     debugMode = Configs.clientParams.contains("debugMode:true")
   }
 
-  private var ifdsSolver: IFDSSolver[soot.Unit, (Value, Set[AbstractValue]), SootMethod, InterproceduralCFG[soot.Unit, SootMethod]] = _
-  private var icfg: JimpleBasedInterproceduralCFG = _
-
-  def getIfdsResultAt(stmt: Stmt, target: Value): Iterable[AbstractValue] = {
+  private def getIfdsResultAt(stmt: Stmt, target: Value): Iterable[AbstractValue] = {
     ifdsSolver.ifdsResultsAt(stmt).asScala.flatMap { case (tainted, taints) =>
       if (tainted.equivTo(target)) {
         taints
@@ -208,7 +249,7 @@ object GUIAnalysis extends IAnalysis {
     }
   }
 
-  def runIFDS(): Unit = {
+  private def runIFDS(): Unit = {
     icfg = new JimpleBasedInterproceduralCFG()
     val analysis = new AbstractValuePropIFDS(icfg)
     ifdsSolver = new IFDSSolver(analysis)
@@ -226,11 +267,9 @@ object GUIAnalysis extends IAnalysis {
     System.out.println("======================== IFDS Solver finished ========================")
   }
 
-  private val allActivities = hier.frameworkManaged.keySet().asScala.filter(c => hier.applicationActivityClasses.contains(c) && !c.isAbstract).toSet
-
-  def writeConstraintsPostVASCO(): Unit = {
-    for (act <- allActivities) {
-      for ((handler, event) <- getActivityHandlers(act)) {
+  private def writeConstraintsPostVASCO(): Unit = {
+    for (act <- AppInfo.allActivities) {
+      for ((handler, event) <- AppInfo.getActivityHandlers(act)) {
         analyzeAnyHandlerPostVASCO(handler)
         writer.writeConstraint(FactsWriter.Fact.activityEventHandler, event, handler, act)
         analyzeActivityHandlerPostVasco(handler)
@@ -247,57 +286,44 @@ object GUIAnalysis extends IAnalysis {
       }
     }
 
-    for (handler <- allHandlers) {
+    for (handler <- AppInfo.getAllHandlers) {
       analyzeAnyHandlerPostVASCO(handler)
     }
 
-    if (mainActivity != null) {
-      writer.writeConstraint(FactsWriter.Fact.mainActivity, mainActivity)
+    if (AppInfo.mainActivity != null) {
+      writer.writeConstraint(FactsWriter.Fact.mainActivity, AppInfo.mainActivity)
     }
     val newlpMainActivity = Scene.v.getSootClassUnsafe("com.revlwp.wallpaper.newlp.MainActivity")
     if (newlpMainActivity != null) {
       writer.writeConstraint(FactsWriter.Fact.mainActivity, newlpMainActivity)
-    } 
+    }
 
-    for ((className, filters) <- xmlParser.getIntentFilters.asScala) {
-      try {
-        val curCls = Scene.v.getSootClass(className)
-        if (curCls != null && curCls.isConcrete) {
-          for (filter <- filters.asScala) {
-            for (action <- filter.getActions.asScala) {
-              val m = curCls.getMethodByNameUnsafe("onReceive")
-              if (m != null) writer.writeConstraint(FactsWriter.Fact.intentFilter, action, m)
-            }
-          }
-        }
-      } catch {
-        case ignored: NullPointerException =>
-      }
+    for ((action, m) <- AppInfo.getIntents) {
+      writer.writeConstraint(FactsWriter.Fact.intentFilter, action, m)
     }
 
     writer.close()
   }
 
-  def analyzeActivityPreVasco(activityClass: SootClass): Unit = {
-    for ((handler, _) <- getActivityHandlers(activityClass)) {
+  private def analyzeActivityPreVasco(activityClass: SootClass): Unit = {
+    for ((handler, _) <- AppInfo.getActivityHandlers(activityClass)) {
       DynamicCFG.addActivityHandlerToEventLoop(activityClass, handler)
     }
-    val onCreate = hier.virtualDispatch(MethodNames.onActivityCreateSubSig, activityClass)
+    val onCreate = AppInfo.hier.virtualDispatch(MethodNames.onActivityCreateSubSig, activityClass)
     if (onCreate != null) {
       writer.writeConstraint(FactsWriter.Fact.lifecycleMethod, activityClass, "onCreate", onCreate)
     }
 
-    val onDestroy = hier.virtualDispatch(MethodNames.onActivityDestroySubSig, activityClass)
+    val onDestroy = AppInfo.hier.virtualDispatch(MethodNames.onActivityDestroySubSig, activityClass)
     if (onDestroy != null) {
       writer.writeConstraint(FactsWriter.Fact.lifecycleMethod, activityClass, "onDestroy", onDestroy)
     }
-    if (hier.isSubclassOf(activityClass, Constants.prefActivity)) {
+    if (AppInfo.hier.isSubclassOf(activityClass, Constants.prefActivity)) {
       writer.writeConstraint(FactsWriter.Fact.preferenceActivity, activityClass)
     }
   }
 
-  private val analyzedHandlers = mutable.Set[SootMethod]()
-  def analyzeAnyHandlerPostVASCO(handler: SootMethod): Unit = {
+  private def analyzeAnyHandlerPostVASCO(handler: SootMethod): Unit = {
     if (analyzedHandlers.contains(handler)) {
       return
     }
@@ -411,7 +437,7 @@ object GUIAnalysis extends IAnalysis {
                 val aftDomain = vascoSolution.getValueBefore(stmt)
                 if (aftDomain != null) {
                   for (node <- aftDomain.getViewNodes(reached, stmt, layout)) {
-                    for (idName <- getIdName(node)) {
+                    for (idName <- AppInfo.getIdName(node)) {
                       writer.writeConstraint(FactsWriter.Fact.adViewIdName, idName)
                     }
                   }
@@ -456,109 +482,6 @@ object GUIAnalysis extends IAnalysis {
             }
           }
         }
-      }
-    }
-  }
-
-  private val mainActivity = xmlParser.getMainActivity
-
-  override def run(): Unit = {
-    println("Pre-analysis time: " + Debug.v().getExecutionTime + " seconds")
-    println("Mark II")
-    readConfigs()
-
-    Ic3Manager.init()
-
-    allHandlers = initAllHandlers()
-
-    DialogInitInstrument.run()
-
-    // TODO: use a proper harness
-    CallGraphManager.patchCallGraph()
-
-    if (debugMode) {
-      dumpCallgraph()
-    }
-
-    CallGraphManager.saveOldCallGraph()
-
-    // IFDS must run before VASCO since VASCO depends on IFDS as pre-analysis
-    runIFDS()
-
-    DialogCreateInstrument.run(allActivities)
-
-    AllInstrument.run(allActivities)
-
-    // Write some constraints and prepare code for VASCO analysis
-    for (handler <- allHandlers) {
-      PreVASCO.analyze(handler)
-    }
-
-    writer = new FactsWriter(outputPath)
-
-    for (service <- xmlParser.getServices.asScala) {
-      if (service != null) {
-        val curCls = Scene.v.getSootClassUnsafe(service)
-        if (curCls != null && curCls.isConcrete) {
-          writer.writeConstraint(FactsWriter.Fact.serviceClass, curCls)
-          val names = curCls.getName.split("\\.")
-          writer.writeConstraint(FactsWriter.Fact.serviceClassLastName, curCls, names.last)
-        }
-      }
-    }
-
-    for ((handler, reached, target) <- PreVASCO.getStartActivityFacts) {
-      writer.writeConstraint(FactsWriter.Fact.startActivity, handler, reached, target)
-    }
-
-    for (activity <- allActivities) {
-      analyzeActivityPreVasco(activity)
-    }
-
-    runVASCO()
-
-    // Write more constraints
-    writeConstraintsPostVASCO()
-
-    // Dump abstractions
-    if (debugMode) {
-      val printWriter = new PrintWriter("/tmp/abstractions.txt")
-      for (m <- analyzedMethods) {
-        printWriter.println("====== Method " + m.getSignature + " =======")
-        printWriter.println(m.getActiveBody)
-        for (unit <- m.getActiveBody.getUnits.asScala) {
-          val abstractions = ifdsSolver.ifdsResultsAt(unit)
-          val aftDomain = vascoSolution.getValueAfter(unit)
-          if ((abstractions != null && abstractions.size() > 0) || (aftDomain != null && aftDomain.nonEmpty)) {
-            if (abstractions != null && abstractions.size() > 0) {
-              for (value <- abstractions.asScala) {
-                for (abstraction <- value._2) {
-                  printWriter.println("\t\t" + value._1 + ": " + abstraction)
-                }
-              }
-            }
-
-            printWriter.println("\tUnit: " + unit)
-            if (aftDomain != null && aftDomain.nonEmpty) {
-              printWriter.println("AFTDomain: ")
-              printWriter.println(aftDomain)
-            }
-
-            printWriter.println()
-          }
-        }
-      }
-      printWriter.close()
-    }
-  }
-
-  def getActivityHandlers(activity: SootClass): Map[SootMethod, String] = {
-    Constants.activityHandlerSubsigs.flatMap { case (sig, event) =>
-      val c = hier.matchForVirtualDispatch(sig, activity)
-      if (c != null && c.isApplicationClass) {
-        Some((c.getMethod(sig), event))
-      } else {
-        None
       }
     }
   }
