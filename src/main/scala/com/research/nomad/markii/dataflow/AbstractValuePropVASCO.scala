@@ -6,6 +6,7 @@ package com.research.nomad.markii.dataflow
 
 import java.time.Instant
 
+import com.research.nomad.markii.analyses.PreVASCO
 import com.research.nomad.markii.dataflow.AbsNode.{ActNode, ListenerNode, ViewNode}
 import com.research.nomad.markii.{Constants, DynamicCFG, GUIAnalysis}
 import io.github.izgzhen.msbase.{IOUtil, JsonUtil}
@@ -229,7 +230,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
   override def callEntryFlowFunction(context: DomainContext, m: SootMethod, callSite: soot.Unit, d: Domain): Domain = {
     val stmt = callSite.asInstanceOf[Stmt]
     val invokeExpr = stmt.getInvokeExpr
-    var ret = if (GUIAnalysis.isStartWindowStmt(callSite.asInstanceOf[Stmt])) {
+    var ret = if (PreVASCO.isStartWindowStmt(callSite.asInstanceOf[Stmt])) {
       topValue()
     } else {
       d.getHeap

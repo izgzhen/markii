@@ -142,4 +142,8 @@ object CallGraphManager {
       case None =>
     }
   }
+
+  def getCallees(methodSig: String): List[SootMethod] = {
+    Scene.v.getCallGraph.edgesOutOf(Scene.v.getMethod(methodSig)).asScala.map(_.getTgt.method).toList
+  }
 }

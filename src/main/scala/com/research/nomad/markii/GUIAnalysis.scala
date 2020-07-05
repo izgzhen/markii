@@ -6,9 +6,10 @@ package com.research.nomad.markii
 
 import java.io.PrintWriter
 
+import com.research.nomad.markii.analyses.PreVASCO
 import com.research.nomad.markii.dataflow.AbsNode.ViewNode
 import com.research.nomad.markii.dataflow.{AFTDomain, AbstractValue, AbstractValuePropIFDS, AbstractValuePropVASCO}
-import com.research.nomad.markii.instrument.{DialogCreateInstrument, DialogInitInstrument}
+import com.research.nomad.markii.instrument.{AllInstrument, DialogCreateInstrument, DialogInitInstrument}
 import heros.InterproceduralCFG
 import heros.solver.IFDSSolver
 import io.github.izgzhen.msbase.IOUtil
@@ -17,12 +18,9 @@ import presto.android.gui.wtg.util.WTGUtil
 import presto.android.{Configs, Debug, Hierarchy, MethodNames}
 import presto.android.xml.{AndroidView, XMLParser}
 import soot.jimple.toolkits.callgraph.Edge
-import soot.jimple.{EqExpr, IfStmt, InstanceInvokeExpr, IntConstant, Jimple, JimpleBody, LookupSwitchStmt, Stmt, StringConstant}
+import soot.jimple.{InstanceInvokeExpr, IntConstant, Jimple, Stmt, StringConstant}
 import soot.jimple.toolkits.ide.icfg.JimpleBasedInterproceduralCFG
-import soot.jimple.toolkits.pointer.LocalMustAliasAnalysis
-import soot.toolkits.graph.CompleteUnitGraph
-import soot.toolkits.scalar.{SimpleLiveLocals, SmartLocalDefs}
-import soot.{Body, Local, RefType, Scene, SootClass, SootMethod, Value}
+import soot.{Local, RefType, Scene, SootClass, SootMethod, Value}
 import vasco.{DataFlowSolution, Helper}
 
 import scala.collection.mutable
@@ -136,33 +134,6 @@ object GUIAnalysis extends IAnalysis {
     val printWriter: PrintWriter = new PrintWriter("/tmp/icfg.txt")
     printWriter.print(Scene.v().getCallGraph.toString.replace(" ==> ", "\n\t==> "))
     printWriter.close()
-  }
-
-  private val aliasAnalysisMap = mutable.Map[SootMethod, LocalMustAliasAnalysis]()
-  private val localDefsMap = mutable.Map[SootMethod, SmartLocalDefs]()
-
-  def getLocalDefs(m: SootMethod) : SmartLocalDefs = {
-    if (!localDefsMap.contains(m)) {
-      val ug = new CompleteUnitGraph(m.getActiveBody)
-      localDefsMap.addOne(m, new SmartLocalDefs(ug, new SimpleLiveLocals(ug)))
-    }
-    localDefsMap(m)
-  }
-
-  def getDefsOfAt(m: SootMethod, l: Local, u: soot.Unit): Set[Stmt] = {
-    getLocalDefs(m).getDefsOfAt(l, u).asScala.toSet.map((u: soot.Unit) => u.asInstanceOf[Stmt])
-  }
-
-  def isAlias(l1: Local, l2: Local, stmt1: Stmt, stmt2: Stmt, m: SootMethod): Boolean = {
-    if (l1.equivTo(l2)) {
-      return true
-    }
-    if (!aliasAnalysisMap.contains(m)) {
-      val ug = new CompleteUnitGraph(m.getActiveBody)
-      aliasAnalysisMap.addOne(m, new LocalMustAliasAnalysis(ug, false))
-    }
-    val analysis = aliasAnalysisMap(m)
-    analysis.mustAlias(l1, stmt1, l2, stmt2) || getLocalDefs(m).getDefsOf(l2) == getLocalDefs(m).getDefsOf(l1)
   }
 
   private var allHandlers: Set[SootMethod] = _
@@ -307,8 +278,6 @@ object GUIAnalysis extends IAnalysis {
     writer.close()
   }
 
-  private val prefActivity = Scene.v.getSootClass("android.preference.PreferenceActivity")
-
   def analyzeActivityPreVasco(activityClass: SootClass): Unit = {
     for ((handler, _) <- getActivityHandlers(activityClass)) {
       DynamicCFG.addActivityHandlerToEventLoop(activityClass, handler)
@@ -322,167 +291,8 @@ object GUIAnalysis extends IAnalysis {
     if (onDestroy != null) {
       writer.writeConstraint(FactsWriter.Fact.lifecycleMethod, activityClass, "onDestroy", onDestroy)
     }
-    if (hier.isSubclassOf(activityClass, prefActivity)) {
+    if (hier.isSubclassOf(activityClass, Constants.prefActivity)) {
       writer.writeConstraint(FactsWriter.Fact.preferenceActivity, activityClass)
-    }
-  }
-
-  private val showDialogInvocations = mutable.Map[Stmt, Local]()
-
-  def instrumentRunOnUiThread(m: SootMethod): Unit = {
-    val swaps = mutable.Map[Stmt, Stmt]()
-    for (unit <- m.getActiveBody.getUnits.asScala) {
-      val stmt = unit.asInstanceOf[Stmt]
-      if (stmt.containsInvokeExpr()) {
-        val invokeExpr = stmt.getInvokeExpr
-        if (Constants.isActivityRunOnUiThread(invokeExpr.getMethod)) {
-          val runnableArg = invokeExpr.getArg(0).asInstanceOf[Local]
-          val runnableArgClass = runnableArg.getType.asInstanceOf[RefType].getSootClass
-          val runMethod = runnableArgClass.getMethodByNameUnsafe("run")
-          val invocation = Jimple.v().newInvokeStmt(Jimple.v().newVirtualInvokeExpr(runnableArg, runMethod.makeRef()))
-          CallGraphManager.updateCall(m, stmt, invocation, runMethod)
-          swaps.put(stmt, invocation)
-        }
-      }
-    }
-    for ((out, in) <- swaps) {
-      m.getActiveBody.getUnits.swapWith(out, in)
-    }
-  }
-
-  /**
-   * Example: a8e458e619d5235fe8a97ea0186961acc1192ed13bb28a79b493c752747cc683
-   * @param m
-   */
-  def instrumentStartTimer(m: SootMethod): Unit = {
-    val swaps = mutable.Map[Stmt, Stmt]()
-    for (unit <- m.getActiveBody.getUnits.asScala) {
-      val stmt = unit.asInstanceOf[Stmt]
-      if (stmt.containsInvokeExpr()) {
-        val invokeExpr = stmt.getInvokeExpr
-        if (invokeExpr.getMethod.getSignature == "<android.os.CountDownTimer: android.os.CountDownTimer start()>") {
-          val timer = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.asInstanceOf[Local]
-          val timerClass = timer.getType.asInstanceOf[RefType].getSootClass
-          val onFinish = timerClass.getMethodByNameUnsafe("onFinish")
-          val invocation = Jimple.v().newInvokeStmt(Jimple.v().newVirtualInvokeExpr(timer, onFinish.makeRef()))
-          CallGraphManager.updateCall(m, stmt, invocation, onFinish)
-          swaps.put(stmt, invocation)
-        }
-      }
-    }
-    for ((out, in) <- swaps) {
-      m.getActiveBody.getUnits.swapWith(out, in)
-    }
-  }
-
-  def analyzeAnyHandlerPreVasco(handler: SootMethod): Unit = {
-    val reachedMethods = CallGraphManager.reachableMethods(handler)
-    for (reached <- reachedMethods) {
-      if (reached.getDeclaringClass.isApplicationClass && reached.isConcrete && reached.hasActiveBody) {
-        val swaps = mutable.Map[Stmt, Stmt]()
-        for (unit <- reached.getActiveBody.getUnits.asScala) {
-          val stmt = unit.asInstanceOf[Stmt]
-          if (stmt.containsInvokeExpr()) {
-            val invokeExpr = stmt.getInvokeExpr
-            val invokedMethod = Util.getMethodUnsafe(invokeExpr)
-            if (invokedMethod != null) {
-              if (invokedMethod.getSubSignature == "void startActivity(android.content.Intent)") {
-                // NOTE: the base type is only used to provide an application context, thus it can't be used to infer the
-                //       source activity
-                GUIAnalysis.getIfdsResultAt(stmt, invokeExpr.getArg(0)).foreach {
-                  case AbstractValue.Intent(intent) =>
-                    // FIXME: imprecision if we ignore the actions etc. fields?
-                    val methods = mutable.Set[SootMethod]()
-                    for (target <- intent.targets) {
-                      DynamicCFG.getRunner(target) match {
-                        case Some(runner) => methods.add(runner.method)
-                        case None =>
-                      }
-                      if (Ic3Manager.ic3Enabled) {
-                        writer.writeConstraint(FactsWriter.Fact.startActivity, handler, reached, target)
-                      }
-                    }
-                    val base = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.getType.asInstanceOf[RefType].getSootClass
-                    val runAllMethod = DynamicCFG.getRunAll(stmt, methods, base, invokedMethod)
-                    Scene.v().getCallGraph.removeAllEdgesOutOf(stmt)
-                    Scene.v().getCallGraph.addEdge(new Edge(reached, stmt, runAllMethod))
-                    // NOTE: no invocation/stmt swap
-                    startWindowStmts.add(stmt)
-                    invokeExpr.setMethodRef(runAllMethod.makeRef())
-                  case _ =>
-                }
-              }
-
-              // TODO: need to bind analyze listener setting in IFDS first
-              // TODO: actually -- this is a more complicated recursive problem. but we can play it easy first.
-              // FIXME: AlertDialog$Builder has a show method as well, this might not work well...but we take it as if it is a Dialog object now
-              if (Constants.isDialogShow(invokedMethod.getSignature) ||
-                Constants.isDialogBuilderShow(invokedMethod.getSignature)) {
-                val dialogBase = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.asInstanceOf[Local]
-                val methods = mutable.Set[SootMethod]()
-                for (defStmt <- getDefsOfAt(reached, dialogBase, stmt)) {
-                  DynamicCFG.getRunnerOfDialog(defStmt) match {
-                    case Some(runner) => methods.add(runner.method)
-                    case None =>
-                  }
-                }
-                if (methods.nonEmpty) {
-                  // FIXME: I need to build a static class for this type of work
-                  val runAllMethod = DynamicCFG.getRunAllDialog(stmt, methods, reached)
-                  val invocation = Jimple.v().newInvokeStmt(Jimple.v().newStaticInvokeExpr(runAllMethod.makeRef(), dialogBase))
-                  Scene.v().getCallGraph.removeAllEdgesOutOf(stmt)
-                  Scene.v().getCallGraph.addEdge(new Edge(reached, invocation, runAllMethod))
-                  swaps.put(stmt, invocation)
-                  startWindowStmts.add(invocation)
-                  showDialogInvocations.put(invocation, dialogBase)
-                }
-              }
-              if (invokedMethod.getSubSignature == "void showDialog(int)") {
-                invokeExpr.getArg(0) match {
-                  case intConstant: IntConstant =>
-                    DialogCreateInstrument.getShowInvocationOfCreateDialog(reached, intConstant.value) match {
-                      case Some(createMethod) =>
-                        DynamicCFG.getRunnerOfDialog(reached.getDeclaringClass, createMethod, intConstant) match {
-                          case Some((runner, internalInvocation)) =>
-                            val invocation = Jimple.v().newInvokeStmt(Jimple.v().newVirtualInvokeExpr(reached.getActiveBody.getThisLocal, runner.method.makeRef()))
-                            CallGraphManager.updateCall(reached, stmt, invocation, runner.method, Some(handler))
-                            swaps.put(stmt, invocation)
-                            startWindowStmts.add(invocation)
-                            showDialogInvocations.put(internalInvocation, runner.view)
-                          case None =>
-                        }
-                      case _ =>
-                    }
-                  case _ =>
-                }
-              }
-              // Replace loadNativeAds with the load handler
-              if (invokedMethod.getName == "loadNativeAds") {
-                for ((argType, idx) <- invokedMethod.getParameterTypes.asScala.zipWithIndex) {
-                  if (argType.toString == "com.applovin.nativeAds.AppLovinNativeAdLoadListener") {
-                    val listenerArg = invokeExpr.getArg(idx).asInstanceOf[Local]
-                    val listenerClass = listenerArg.getType.asInstanceOf[RefType].getSootClass
-                    val adLoadHandler = listenerClass.getMethodByNameUnsafe("onNativeAdsLoaded")
-                    if (adLoadHandler != null && Constants.isActivity(reached.getDeclaringClass)) {
-                      // Instrument adLoadHandler
-                      instrumentRunOnUiThread(adLoadHandler)
-
-                      // Replace invocation
-                      val invocation = Jimple.v().newInvokeStmt(Jimple.v().newVirtualInvokeExpr(listenerArg, adLoadHandler.makeRef()))
-                      CallGraphManager.updateCall(reached, stmt, invocation, adLoadHandler, Some(handler))
-                      swaps.put(stmt, invocation)
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-
-        for ((out, in) <- swaps) {
-          reached.getActiveBody.getUnits.swapWith(out, in)
-        }
-      }
     }
   }
 
@@ -561,16 +371,18 @@ object GUIAnalysis extends IAnalysis {
                 }
               }
               // FIXME: frauddroid-gba.apk "<android.app.Activity: void showDialog(int)>" and onPrepareDialog, onCreateDialog
-              if (showDialogInvocations.contains(stmt)) {
-                if (aftDomain != null) {
-                  val dialogBase = showDialogInvocations(stmt)
-                  for (dialogNode <- aftDomain.getViewNodes(reached, stmt, dialogBase)) {
-                    writer.writeConstraint(FactsWriter.Fact.dialogView, dialogNode.nodeID, icfg.getMethodOf(dialogNode.allocSite))
-                    writer.writeConstraint(FactsWriter.Fact.showDialog, handler, reached, dialogNode.nodeID)
-                    for (handler <- aftDomain.getDialogButtonHandlers(dialogNode)) {
-                      writer.writeConstraint(FactsWriter.Fact.alertDialogFixedButtonHandler, handler, dialogNode.nodeID)
+              if (aftDomain != null) {
+                PreVASCO.getShowDialogInvocations(stmt) match {
+                  case Some(dialogBase) => {
+                    for (dialogNode <- aftDomain.getViewNodes(reached, stmt, dialogBase)) {
+                      writer.writeConstraint(FactsWriter.Fact.dialogView, dialogNode.nodeID, icfg.getMethodOf(dialogNode.allocSite))
+                      writer.writeConstraint(FactsWriter.Fact.showDialog, handler, reached, dialogNode.nodeID)
+                      for (handler <- aftDomain.getDialogButtonHandlers(dialogNode)) {
+                        writer.writeConstraint(FactsWriter.Fact.alertDialogFixedButtonHandler, handler, dialogNode.nodeID)
+                      }
                     }
                   }
+                  case _ =>
                 }
               }
               if (invokedMethod.getSignature == "<com.google.ads.consent.ConsentInformation: void setConsentStatus(com.google.ads.consent.ConsentStatus)>") {
@@ -650,21 +462,6 @@ object GUIAnalysis extends IAnalysis {
 
   private val mainActivity = xmlParser.getMainActivity
 
-  def getCallees(methodSig: String): List[SootMethod] = {
-    Scene.v.getCallGraph.edgesOutOf(Scene.v.getMethod(methodSig)).asScala.map(_.getTgt.method).toList
-  }
-
-  def instrumentAllMethods(): Unit = {
-    for (activity <- allActivities) {
-      for (method <- activity.getMethods.asScala) {
-        if (method.isConcrete && method.hasActiveBody) {
-          // FIXME: remove the mainActivity workaround by fixing this
-          // instrumentStartTimer(method)
-        }
-      }
-    }
-  }
-
   override def run(): Unit = {
     println("Pre-analysis time: " + Debug.v().getExecutionTime + " seconds")
     println("Mark II")
@@ -690,7 +487,12 @@ object GUIAnalysis extends IAnalysis {
 
     DialogCreateInstrument.run(allActivities)
 
-    instrumentAllMethods()
+    AllInstrument.run(allActivities)
+
+    // Write some constraints and prepare code for VASCO analysis
+    for (handler <- allHandlers) {
+      PreVASCO.analyze(handler)
+    }
 
     writer = new FactsWriter(outputPath)
 
@@ -705,9 +507,8 @@ object GUIAnalysis extends IAnalysis {
       }
     }
 
-    // Write some constraints and prepare code for VASCO analysis
-    for (handler <- allHandlers) {
-      analyzeAnyHandlerPreVasco(handler)
+    for ((handler, reached, target) <- PreVASCO.getStartActivityFacts) {
+      writer.writeConstraint(FactsWriter.Fact.startActivity, handler, reached, target)
     }
 
     for (activity <- allActivities) {
@@ -761,9 +562,4 @@ object GUIAnalysis extends IAnalysis {
       }
     }
   }
-
-  // NOTE: a type-safe way to prevent missing run All to configure heap transfer
-  private val startWindowStmts: mutable.Set[Stmt] = mutable.Set()
-
-  def isStartWindowStmt(stmt: Stmt): Boolean = startWindowStmts.contains(stmt)
 }

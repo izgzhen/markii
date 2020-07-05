@@ -23,6 +23,7 @@ object Constants {
 
   val imageViewClass: SootClass = Scene.v.getSootClass("android.widget.ImageView")
   val buttonViewClass: SootClass = Scene.v.getSootClass("android.widget.Button")
+  val prefActivity: SootClass = Scene.v.getSootClass("android.preference.PreferenceActivity")
 
   val layoutParamsClass: SootClass = Scene.v.getSootClass("android.view.ViewGroup$LayoutParams")
 

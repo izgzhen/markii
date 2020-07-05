@@ -4,7 +4,7 @@
 
 package com.research.nomad.markii.dataflow
 
-import com.research.nomad.markii.{Constants, GUIAnalysis}
+import com.research.nomad.markii.{Constants, GUIAnalysis, PreAnalyses}
 import com.research.nomad.markii.dataflow.AbsNode.{ActNode, LayoutParamsNode, ListenerNode, ViewNode}
 import presto.android.gui.listener.EventType
 import presto.android.xml.AndroidView
@@ -52,7 +52,7 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsNode]],
    */
   def updateNodes(contextMethod: SootMethod, stmt: Stmt, local: Local, nodeToNode: AbsNode => AbsNode): AFTDomain = {
     copy(localNodeMap = localNodeMap.map { case (l, accessPath) =>
-      if (GUIAnalysis.isAlias(local, l, stmt, stmt, contextMethod)) {
+      if (PreAnalyses.isAlias(local, l, stmt, stmt, contextMethod)) {
         (l, accessPath.updateData(nodeToNode))
       } else {
         (l, accessPath)
@@ -138,7 +138,7 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsNode]],
 
   def getNodes(contextMethod: SootMethod, stmt: Stmt, local: Local): Iterable[AbsNode] = {
     localNodeMap.flatMap { case (l, accessPath) =>
-      if (GUIAnalysis.isAlias(local, l, stmt, stmt, contextMethod)) {
+      if (PreAnalyses.isAlias(local, l, stmt, stmt, contextMethod)) {
         accessPath.data.getOrElse(Set())
       } else {
         Set()
