@@ -644,19 +644,17 @@ object GUIAnalysis extends IAnalysis {
     // FIXME: performance
     for (reached <- reachedMethods) {
       if (reached.getDeclaringClass.isApplicationClass && reached.isConcrete && reached.hasActiveBody) {
-        if (Ic3Manager.methodIc3Map.contains(reached)) {
-          for ((srcClass, intents) <- Ic3Manager.methodIc3Map(reached)) {
-            for (intent <- intents) {
-              if (intent.getComponentClass != null && intent.getComponentClass.nonEmpty) {
-                val targetAct = Scene.v().getSootClass(intent.getComponentClass)
-                writer.writeConstraint(FactsWriter.Fact.startActivity, handler, reached, targetAct)
-              }
-              if (intent.getAction != null && intent.getAction.equals("android.intent.action.VIEW")) {
-                if (intent.getDataScheme != null && intent.getDataScheme.equals("market")) {
-                  writer.writeConstraint(FactsWriter.Fact.startViewActivityOfMarketHost, handler, reached);
-                } else {
-                  writer.writeConstraint(FactsWriter.Fact.startViewActivityOfSomeHosts, handler, reached);
-                }
+        for ((srcClass, intents) <- Ic3Manager.getIntents(reached)) {
+          for (intent <- intents) {
+            if (intent.getComponentClass != null && intent.getComponentClass.nonEmpty) {
+              val targetAct = Scene.v().getSootClass(intent.getComponentClass)
+              writer.writeConstraint(FactsWriter.Fact.startActivity, handler, reached, targetAct)
+            }
+            if (intent.getAction != null && intent.getAction.equals("android.intent.action.VIEW")) {
+              if (intent.getDataScheme != null && intent.getDataScheme.equals("market")) {
+                writer.writeConstraint(FactsWriter.Fact.startViewActivityOfMarketHost, handler, reached);
+              } else {
+                writer.writeConstraint(FactsWriter.Fact.startViewActivityOfSomeHosts, handler, reached);
               }
             }
           }
@@ -721,7 +719,7 @@ object GUIAnalysis extends IAnalysis {
               }
 
               if (invokedMethod.getSignature == "<com.waps.AdView: void <init>(android.content.Context,android.widget.LinearLayout)>" ||
-                  invokedMethod.getSignature == "<com.waps.MiniAdView: void <init>(android.content.Context,android.widget.LinearLayout)>") {
+                invokedMethod.getSignature == "<com.waps.MiniAdView: void <init>(android.content.Context,android.widget.LinearLayout)>") {
                 val layout = invokeExpr.getArg(1).asInstanceOf[Local]
                 val aftDomain = vascoSolution.getValueBefore(stmt)
                 if (aftDomain != null) {

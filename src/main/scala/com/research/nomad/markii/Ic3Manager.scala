@@ -15,12 +15,12 @@ import scala.jdk.CollectionConverters._
 
 object Ic3Manager {
   private val ic3 = Configs.project.replace(".apk", "_ic3.txt")
-  var ic3Enabled: Boolean = false
-  val methodIc3Map: mutable.Map[SootMethod, mutable.Set[(SootClass, Set[Intent])]] = mutable.Map()
+  private var enabled: Boolean = false
+  private val methodIc3Map: mutable.Map[SootMethod, mutable.Set[(SootClass, Set[Intent])]] = mutable.Map()
 
   def init() {
     if (new File(ic3).exists) {
-      ic3Enabled = true
+      enabled = true
       val app = Ic3ResultLoader.load(ic3)
       if (app != null) {
         for (component <- app.getComponentList.asScala) {
@@ -36,4 +36,12 @@ object Ic3Manager {
       }
     }
   }
+
+  def ic3Enabled: Boolean = enabled
+
+  def getIntents(m: SootMethod): Iterable[(SootClass, Set[Intent])] =
+    methodIc3Map.get(m) match {
+      case Some(mutableSet) => mutableSet
+      case None => Iterable.empty
+    }
 }
