@@ -10,3 +10,7 @@ $(JARFILE): $(JAVA_FILES) $(SCALA_FILES)
 	sbt assembly
 
 jar: $(JARFILE)
+
+gendoc:
+	sbt doc
+	cp -r target/scala-2.13/api docs
