@@ -13,4 +13,5 @@ jar: $(JARFILE)
 
 gendoc:
 	sbt doc
+	rm -rf docs/api
 	cp -r target/scala-2.13/api docs
