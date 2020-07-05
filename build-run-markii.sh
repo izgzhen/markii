@@ -1,3 +1,4 @@
+#!/bin/bash
 # This script will mount the current source directory to docker and build the
 # artifact incrementally before running on the target APK
 

@@ -1,5 +1,7 @@
 test01:
-	bash ./build-run-markii.sh ../tests/test01/app/build/outputs/apk/debug/app-debug.apk output/facts output/info.json
+	cd tests/test01; ./gradlew assembleDebug
+	mkdir -p /tmp/facts
+	./build-run-markii.sh tests/test01/app/build/outputs/apk/debug/app-debug.apk /tmp/facts
 
 JAVA_FILES := $(shell find src -name "*.java")
 SCALA_FILES := $(shell find src -name "*.scala")
