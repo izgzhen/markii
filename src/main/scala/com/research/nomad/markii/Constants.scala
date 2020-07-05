@@ -21,6 +21,9 @@ object Constants {
     MethodNames.onOptionsItemSelectedSubSig -> "itemSelected",
   )
 
+  val imageViewClass: SootClass = Scene.v.getSootClass("android.widget.ImageView")
+  val buttonViewClass: SootClass = Scene.v.getSootClass("android.widget.Button")
+
   val layoutParamsClass: SootClass = Scene.v.getSootClass("android.view.ViewGroup$LayoutParams")
 
   def isWhitelistedMethod(method: SootMethod): Boolean =
