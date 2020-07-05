@@ -15,7 +15,7 @@ import presto.android.gui.IDNameExtractor
 import presto.android.gui.wtg.util.WTGUtil
 import presto.android.{Configs, Debug, Hierarchy, MethodNames}
 import presto.android.xml.{AndroidView, XMLParser}
-import soot.jimple.infoflow.android.iccta.{Ic3ResultLoader, Intent}
+import soot.jimple.infoflow.android.iccta.Intent
 import soot.jimple.toolkits.callgraph.Edge
 import soot.jimple.{EqExpr, IfStmt, InstanceInvokeExpr, IntConstant, Jimple, JimpleBody, LookupSwitchStmt, NullConstant, Stmt, StringConstant}
 import soot.jimple.toolkits.ide.icfg.JimpleBasedInterproceduralCFG
@@ -30,6 +30,9 @@ import scala.jdk.CollectionConverters._
 
 case class Runner(method: SootMethod, loopExit: soot.Unit, view: Local)
 
+/**
+ * Core GUI Analysis that implement the client interface IAnalysis
+ */
 object GUIAnalysis extends IAnalysis {
   val hier: Hierarchy = Hierarchy.v()
   val xmlParser: XMLParser = XMLParser.Factory.getXMLParser
@@ -323,9 +326,8 @@ object GUIAnalysis extends IAnalysis {
     println("VASCO solution generated")
   }
 
-  var outputPath = "/tmp/gator-facts/"
+  var outputPath = "/tmp/markii-facts/"
   var debugMode = false
-  var onlyPreAnalysis = false
 
   def readConfigs(): Unit = {
     for (param <- Configs.clientParams.asScala) {
@@ -333,7 +335,6 @@ object GUIAnalysis extends IAnalysis {
     }
 
     debugMode = Configs.clientParams.contains("debugMode:true")
-    onlyPreAnalysis = Configs.clientParams.contains("onlyPreAnalysis:true")
   }
 
   private var ifdsSolver: IFDSSolver[soot.Unit, (Value, Set[AbstractValue]), SootMethod, InterproceduralCFG[soot.Unit, SootMethod]] = _
@@ -515,7 +516,7 @@ object GUIAnalysis extends IAnalysis {
                         case Some(runner) => methods.add(runner.method)
                         case None =>
                       }
-                      if (!ic3Enabled) {
+                      if (Ic3Manager.ic3Enabled) {
                         writer.writeConstraint(FactsWriter.Fact.startActivity, handler, reached, target)
                       }
                     }
@@ -643,8 +644,8 @@ object GUIAnalysis extends IAnalysis {
     // FIXME: performance
     for (reached <- reachedMethods) {
       if (reached.getDeclaringClass.isApplicationClass && reached.isConcrete && reached.hasActiveBody) {
-        if (methodIc3Map.contains(reached)) {
-          for ((srcClass, intents) <- methodIc3Map(reached)) {
+        if (Ic3Manager.methodIc3Map.contains(reached)) {
+          for ((srcClass, intents) <- Ic3Manager.methodIc3Map(reached)) {
             for (intent <- intents) {
               if (intent.getComponentClass != null && intent.getComponentClass.nonEmpty) {
                 val targetAct = Scene.v().getSootClass(intent.getComponentClass)
@@ -710,12 +711,12 @@ object GUIAnalysis extends IAnalysis {
                 }
               }
               if (invokedMethod.getSignature == "<android.os.BaseBundle: void putString(java.lang.String,java.lang.String)>") {
-                if (invokeExpr.getArg(0).isInstanceOf[StringConstant] && invokeExpr.getArg(1).isInstanceOf[StringConstant]) {
-                  val arg0 = invokeExpr.getArg(0).asInstanceOf[StringConstant].value
-                  val arg1 = invokeExpr.getArg(1).asInstanceOf[StringConstant].value
-                  if (arg0 == "npa" && arg1 == "1") {
-                    writer.writeConstraint(FactsWriter.Fact.setNPA, handler)
-                  }
+                (invokeExpr.getArg(0), invokeExpr.getArg(1)) match {
+                  case (arg0: StringConstant, arg1: StringConstant) =>
+                    if (arg0.value == "npa" && arg1.value == "1") {
+                      writer.writeConstraint(FactsWriter.Fact.setNPA, handler)
+                    }
+                  case _ =>
                 }
               }
 
@@ -744,8 +745,10 @@ object GUIAnalysis extends IAnalysis {
               }
               if (invokedMethodClass.getName == "android.webkit.WebView" && invokedMethod.getName == "loadUrl") {
                 var arg0 = "ANY"
-                if (invokeExpr.getArg(0).isInstanceOf[StringConstant]) {
-                  arg0 = invokeExpr.getArg(0).asInstanceOf[StringConstant].value
+                invokeExpr.getArg(0) match {
+                  case strConstant: StringConstant =>
+                    arg0 = strConstant.value
+                  case _ =>
                 }
                 writer.writeConstraint(FactsWriter.Fact.loadWebViewUrl, handler, reached, arg0)
               }
@@ -784,9 +787,6 @@ object GUIAnalysis extends IAnalysis {
   def getCallees(methodSig: String): List[SootMethod] = {
     Scene.v.getCallGraph.edgesOutOf(Scene.v.getMethod(methodSig)).asScala.map(_.getTgt.method).toList
   }
-
-  private var ic3Enabled = false
-  private val methodIc3Map: mutable.Map[SootMethod, mutable.Set[(SootClass, Set[Intent])]] = mutable.Map()
 
   private val showCreateDialog = mutable.Map[SootClass, mutable.Map[Int, SootMethod]]()
 
@@ -907,9 +907,6 @@ object GUIAnalysis extends IAnalysis {
           }
       }
     }
-//    if (!hasIfStmt && !hasSuperOnCreateDialog) {
-//      throw new Exception("No lookup or if\n" + method.getSignature + "\n" + method.getActiveBody)
-//    }
   }
 
   private def instrumentAllDialogInit(): Unit = {
@@ -951,34 +948,12 @@ object GUIAnalysis extends IAnalysis {
     }
   }
 
-  def run(): Unit = {
+  override def run(): Unit = {
     println("Pre-analysis time: " + Debug.v().getExecutionTime + " seconds")
     println("Mark II")
     readConfigs()
 
-    val ic3 = Configs.project.replace(".apk", "_ic3.txt")
-    if (new File(ic3).exists) {
-      ic3Enabled = true
-      val app = Ic3ResultLoader.load(ic3)
-      if (app != null) {
-        for (component <- app.getComponentList.asScala) {
-          val src = Scene.v.getSootClass(component.getName)
-          for (p <- component.getExitPointsList.asScala) {
-            val exitMethod = Scene.v.getMethod(p.getInstruction.getMethod)
-            val intents = app.getIntents(component, p)
-            if (intents != null && intents.size() > 0) {
-              methodIc3Map.getOrElseUpdate(exitMethod, mutable.Set()).add((src, intents.asScala.toSet))
-            }
-          }
-        }
-      }
-    }
-
-    if (onlyPreAnalysis) {
-      IOUtil.writeLines(Scene.v().getReachableMethods.listener().asScala.map(_.method().getSignature).toList, "/tmp/methods_markii.txt")
-      println("Reachable: " + Scene.v().getReachableMethods.size())
-      return
-    }
+    Ic3Manager.init()
 
     initAllHandlers()
 
@@ -1068,21 +1043,6 @@ object GUIAnalysis extends IAnalysis {
         None
       }
     }
-  }
-
-  def locateStmt(sootMethod: SootMethod, stmt: Stmt): String = {
-    val lines = mutable.ArrayBuffer[String]()
-
-    for (unit <- sootMethod.getActiveBody.getUnits.asScala) {
-      if (unit != stmt) {
-        lines.addOne(unit.toString)
-      } else {
-        lines.addOne("************************")
-        lines.addOne(unit.toString)
-        lines.addOne("************************")
-      }
-    }
-    lines.mkString("\n")
   }
 
   // NOTE: a type-safe way to prevent missing run All to configure heap transfer

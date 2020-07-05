@@ -5,7 +5,10 @@
 package com.research.nomad.markii
 
 import soot.SootMethod
-import soot.jimple.InvokeExpr
+import soot.jimple.{InvokeExpr, Stmt}
+
+import scala.collection.mutable
+import scala.jdk.CollectionConverters._
 
 object Util {
   /**
@@ -23,5 +26,20 @@ object Util {
         println(ignored)
         null
     }
+  }
+
+  def locateStmt(sootMethod: SootMethod, stmt: Stmt): String = {
+    val lines = mutable.ArrayBuffer[String]()
+
+    for (unit <- sootMethod.getActiveBody.getUnits.asScala) {
+      if (unit != stmt) {
+        lines.addOne(unit.toString)
+      } else {
+        lines.addOne("************************")
+        lines.addOne(unit.toString)
+        lines.addOne("************************")
+      }
+    }
+    lines.mkString("\n")
   }
 }
