@@ -35,8 +35,4 @@ class TestAnalysis extends TestCase {
     )
     presto.android.Main.main(args.toArray)
   }
-
-//  private def withHarness(apkPath: Option[String] = None): Unit = {
-//
-//  }
 }

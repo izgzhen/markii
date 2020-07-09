@@ -25,4 +25,5 @@ jobs:
     # Runs a single command using the runners shell
     - name: Test analyzer
       run: |
-        ANDROID_SDK=$PWD/android-tools-linux make test01
+        ANDROID_SDK=$PWD/android-tools-linux sbt test
+        ANDROID_SDK=$PWD/android-tools-linux make test-all
