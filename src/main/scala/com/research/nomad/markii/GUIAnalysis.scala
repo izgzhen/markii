@@ -8,7 +8,7 @@ import java.io.PrintWriter
 
 import com.research.nomad.markii.analyses.PreVASCO
 import com.research.nomad.markii.dataflow.AbsNode.ViewNode
-import com.research.nomad.markii.dataflow.{AFTDomain, AbstractValue, AbstractValuePropIFDS, AbstractValuePropVASCO}
+import com.research.nomad.markii.dataflow.{AFTDomain, AbstractValue, AbstractValuePropIFDS, AbstractValuePropVASCO, CustomDomain, CustomStatePropVASCO}
 import com.research.nomad.markii.instrument.{AllInstrument, DialogCreateInstrument, DialogInitInstrument}
 import heros.InterproceduralCFG
 import heros.solver.IFDSSolver
@@ -42,6 +42,7 @@ object GUIAnalysis extends IAnalysis {
   private var ifdsSolver: IFDSSolver[soot.Unit, (Value, Set[AbstractValue]), SootMethod, InterproceduralCFG[soot.Unit, SootMethod]] = _
   private var icfg: JimpleBasedInterproceduralCFG = _
   private var vascoSolution: DataFlowSolution[soot.Unit, AFTDomain] = _
+  private var customVascoSolution: DataFlowSolution[soot.Unit, CustomDomain[Unit]] = _
 
   override def run(): Unit = {
     println("Pre-analysis time: " + Debug.v().getExecutionTime + " seconds")
@@ -90,6 +91,7 @@ object GUIAnalysis extends IAnalysis {
     }
 
     runVASCO()
+    runCustomVASCO()
 
     // Write more constraints
     writeConstraintsPostVASCO()
@@ -228,6 +230,23 @@ object GUIAnalysis extends IAnalysis {
       vascoSolution = Helper.getMeetOverValidPathsSolution(vascoProp)
     } else {
       vascoSolution = Helper.getMeetOverValidPathsSolutionPar(vascoProp)
+    }
+    println("VASCO solution generated")
+  }
+
+  private def runCustomVASCO(): Unit = {
+    // NOTE: over-approx of entrypoints
+    // FIXME: code duplication
+    val entrypointsFull = AppInfo.allActivities.flatMap(DynamicCFG.getRunner).map(_.method).toList
+    val vascoProp = new CustomStatePropVASCO[Unit](entrypointsFull)
+    println("VASCO starts")
+    vascoProp.doAnalysis()
+    println("VASCO finishes")
+
+    if (sys.env.contains("BATCH_RUN")) {
+      customVascoSolution = Helper.getMeetOverValidPathsSolution(vascoProp)
+    } else {
+      customVascoSolution = Helper.getMeetOverValidPathsSolutionPar(vascoProp)
     }
     println("VASCO solution generated")
   }

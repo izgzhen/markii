@@ -123,7 +123,7 @@ def analyze(args, unknown):
 
 def build(args, unknown):
     cmd = ["make", "jar"]
-    call(cmd)
+    assert call(cmd) == 0
 
 
 def main():

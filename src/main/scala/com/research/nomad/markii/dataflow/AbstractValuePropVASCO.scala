@@ -8,12 +8,11 @@ import java.time.Instant
 
 import com.research.nomad.markii.analyses.PreVASCO
 import com.research.nomad.markii.dataflow.AbsNode.{ActNode, ListenerNode, ViewNode}
-import com.research.nomad.markii.{Constants, DynamicCFG, GUIAnalysis}
+import com.research.nomad.markii.{AppInfo, Constants, DynamicCFG, GUIAnalysis}
 import io.github.izgzhen.msbase.{IOUtil, JsonUtil}
 import presto.android.gui.listener.EventType
 
 import scala.jdk.CollectionConverters._
-import presto.android.Hierarchy
 import soot.jimple.internal.{JIdentityStmt, JimpleLocal}
 import soot.jimple.{AssignStmt, CastExpr, InstanceFieldRef, InstanceInvokeExpr, IntConstant, InvokeExpr, NewExpr, ReturnStmt, StaticFieldRef, Stmt, ThisRef}
 import soot.{Local, RefType, Scene, SootClass, SootMethod, UnitPatchingChain, Value}
@@ -32,7 +31,6 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
   type DomainContext = Context[SootMethod, soot.Unit, Domain]
 
   private val RETURN_LOCAL = new JimpleLocal("@return", null)
-  private val hier = Hierarchy.v()
 
   private def setDialogButtonListener(buttonType: DialogButtonType.Value, invokeExpr: InvokeExpr, d: AFTDomain,
                                       ctxMethod: SootMethod, stmt: Stmt): AFTDomain = {
@@ -59,7 +57,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
         assigned(ctxMethod, assignStmt, ref, castExpr.getOp, ctx, input)
       case newExpr: NewExpr =>
         val sootClass = newExpr.getBaseType.getSootClass
-        if (hier.isSubclassOf(sootClass, Scene.v().getSootClass(Constants.androidViewClassName))) {
+        if (AppInfo.hier.isSubclassOf(sootClass, Scene.v().getSootClass(Constants.androidViewClassName))) {
           killed.newView(ref, sootClass, assignStmt)
         } else if (Constants.isDialogBuilderClass(sootClass)) {
           killed.newView(ref, sootClass, assignStmt)
@@ -67,7 +65,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
           killed.newView(ref, sootClass, assignStmt)
         } else if (Constants.isViewEventListenerClass(sootClass)) {
           killed.newListener(ref, sootClass)
-        } else if (hier.isSubclassOf(sootClass, Constants.layoutParamsClass)) {
+        } else if (AppInfo.hier.isSubclassOf(sootClass, Constants.layoutParamsClass)) {
           killed.newLayoutParams(ref)
         } else {
           killed
@@ -401,7 +399,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
             val dialogBase = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.asInstanceOf[Local]
             return d.setContentViewDialog(context.getMethod, stmt, dialogBase, invokeExpr.getArg(0).asInstanceOf[Local])
           }
-          if (hier.isSubclassOf(invokeExpr.getMethod.getDeclaringClass, Constants.layoutParamsClass)) {
+          if (AppInfo.hier.isSubclassOf(invokeExpr.getMethod.getDeclaringClass, Constants.layoutParamsClass)) {
             if (invokeExpr.getMethod.getName == "<init>") {
               val paramsBase = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.asInstanceOf[Local]
               if (invokeExpr.getMethod.getSubSignature == "void <init>(int,int)") {

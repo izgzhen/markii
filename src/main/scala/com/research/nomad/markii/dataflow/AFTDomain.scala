@@ -4,7 +4,7 @@
 
 package com.research.nomad.markii.dataflow
 
-import com.research.nomad.markii.{AppInfo, Constants, GUIAnalysis, PreAnalyses}
+import com.research.nomad.markii.{AppInfo, Constants, PreAnalyses}
 import com.research.nomad.markii.dataflow.AbsNode.{ActNode, LayoutParamsNode, ListenerNode, ViewNode}
 import presto.android.gui.listener.EventType
 import presto.android.xml.AndroidView
