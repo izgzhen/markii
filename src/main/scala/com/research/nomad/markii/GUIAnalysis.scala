@@ -8,11 +8,13 @@ import java.io.PrintWriter
 
 import com.research.nomad.markii.analyses.PreVASCO
 import com.research.nomad.markii.dataflow.AbsNode.ViewNode
+import com.research.nomad.markii.dataflow.custom.Recorder
 import com.research.nomad.markii.dataflow.{AFTDomain, AbstractValue, AbstractValuePropIFDS, AbstractValuePropVASCO, CustomDomain, CustomStatePropVASCO}
 import com.research.nomad.markii.instrument.{AllInstrument, DialogCreateInstrument, DialogInitInstrument}
 import heros.InterproceduralCFG
 import heros.solver.IFDSSolver
 import io.github.izgzhen.msbase.IOUtil
+import presto.android.gui.listener.EventType
 import presto.android.gui.wtg.util.WTGUtil
 import presto.android.{Configs, Debug, MethodNames}
 import presto.android.xml.AndroidView
@@ -42,7 +44,7 @@ object GUIAnalysis extends IAnalysis {
   private var ifdsSolver: IFDSSolver[soot.Unit, (Value, Set[AbstractValue]), SootMethod, InterproceduralCFG[soot.Unit, SootMethod]] = _
   private var icfg: JimpleBasedInterproceduralCFG = _
   private var vascoSolution: DataFlowSolution[soot.Unit, AFTDomain] = _
-  private var customVascoSolution: DataFlowSolution[soot.Unit, CustomDomain[Unit]] = _
+  private var customVascoSolution: DataFlowSolution[soot.Unit, CustomDomain[Boolean]] = _
 
   override def run(): Unit = {
     println("Pre-analysis time: " + Debug.v().getExecutionTime + " seconds")
@@ -91,10 +93,11 @@ object GUIAnalysis extends IAnalysis {
     }
 
     runVASCO()
-    runCustomVASCO()
 
-    // Write more constraints
+    // Write more constraints and close writer
     writeConstraintsPostVASCO()
+
+    runCustomVASCO()
 
     // Dump abstractions
     if (debugMode) {
@@ -238,7 +241,12 @@ object GUIAnalysis extends IAnalysis {
     // NOTE: over-approx of entrypoints
     // FIXME: code duplication
     val entrypointsFull = AppInfo.allActivities.flatMap(DynamicCFG.getRunner).map(_.method).toList
-    val vascoProp = new CustomStatePropVASCO[Unit](entrypointsFull)
+
+    val eventHandlers =
+      writer.getStoredConstraints(FactsWriter.Fact.eventHandler).map(
+        args => (args(1).asInstanceOf[SootMethod], args.head.asInstanceOf[EventType])).toMap
+
+    val vascoProp = new CustomStatePropVASCO[Boolean](entrypointsFull ++ eventHandlers.keys.toList, Recorder)
     println("VASCO starts")
     vascoProp.doAnalysis()
     println("VASCO finishes")

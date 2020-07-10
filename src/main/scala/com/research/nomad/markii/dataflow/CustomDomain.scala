@@ -8,15 +8,20 @@ import com.research.nomad.markii.PreAnalyses
 import soot.jimple.{InstanceInvokeExpr, InvokeExpr, Stmt}
 import soot.{Local, SootClass, SootMethod}
 
+trait CustomObjectStateTransformer[S] {
+  def initInstance(sootClass: SootClass): Option[S]
+  def updatedInstance(s: S, instanceInvokeExpr: InstanceInvokeExpr): S
+}
+
 /**
  * TODO
  */
-case class CustomDomain[V](private val localMap: Map[Local, AccessPath[V]],
-                           private val globalMap: Map[SootClass, AccessPath[V]]) {
+case class CustomDomain[S](private val localMap: Map[Local, AccessPath[S]],
+                           private val globalMap: Map[SootClass, AccessPath[S]]) {
   /**
    * STRUCTURAL METHOD
    */
-  def meet(d: CustomDomain[V]): CustomDomain[V] = {
+  def meet(d: CustomDomain[S]): CustomDomain[S] = {
     if (equalsTop) return d
     if (d.equalsTop) return this
     if (equals(d)) return this
@@ -31,7 +36,7 @@ case class CustomDomain[V](private val localMap: Map[Local, AccessPath[V]],
    * STRUCTURAL METHOD
    */
   def updateVal(contextMethod: SootMethod, stmt: Stmt, local: Local,
-                valMapper: V => V): CustomDomain[V] = {
+                valMapper: S => S): CustomDomain[S] = {
     copy(localMap = localMap.map { case (l, accessPath) =>
       if (PreAnalyses.isAlias(local, l, stmt, stmt, contextMethod)) {
         (l, accessPath.updateData(valMapper))
@@ -52,7 +57,7 @@ case class CustomDomain[V](private val localMap: Map[Local, AccessPath[V]],
   /**
    * STRUCTURAL METHOD
    */
-  def getHeap: CustomDomain[V] = copy(localMap = Map())
+  def getHeap: CustomDomain[S] = copy(localMap = Map())
 
   /**
    * STRUCTURAL METHOD
@@ -60,49 +65,35 @@ case class CustomDomain[V](private val localMap: Map[Local, AccessPath[V]],
   def nonEmpty: Boolean =
     localMap.nonEmpty || globalMap.nonEmpty
 
-  /**
-   * TODO: implement this
-   * @param ref
-   * @param sootClass
-   * @param stmt
-   * @return
-   */
-  def newInstance(ref: Ref, sootClass: SootClass, stmt: Stmt): CustomDomain[V] = {
-    this
+  def newInstance(transformer: CustomObjectStateTransformer[S], ref: Ref,
+                  sootClass: SootClass, stmt: Stmt): CustomDomain[S] = {
+    transformer.initInstance(sootClass) match {
+      case Some(v) => withVal(ref, v)
+      case None => this
+    }
   }
 
-  /**
-   * Implement this
-   * @param ref
-   * @param invokeExpr
-   * @param stmt
-   * @return
-   */
-  def invokeMethodAssign(ref: Ref, invokeExpr: InstanceInvokeExpr, stmt: Stmt): CustomDomain[V] = {
-    this
-  }
-
-  /**
-   * Implement this
-   * @param invokeExpr
-   * @param stmt
-   * @return
-   */
-  def invokeMethod(invokeExpr: InvokeExpr, stmt: Stmt): CustomDomain[V] = {
-    this
+  def invokeMethod(transformer: CustomObjectStateTransformer[S], ctxMethod: SootMethod,
+                   invokeExpr: InvokeExpr, stmt: Stmt): CustomDomain[S] = {
+    invokeExpr match {
+      case instanceInvokeExpr: InstanceInvokeExpr =>
+        updateVal(ctxMethod, stmt, instanceInvokeExpr.getBase.asInstanceOf[Local],
+          v => transformer.updatedInstance(v, instanceInvokeExpr))
+      case _ => this
+    }
   }
 
   /**
    * STRUCTURAL METHOD
    */
-  private def equivTo(domain: CustomDomain[V]): Boolean =
+  private def equivTo(domain: CustomDomain[S]): Boolean =
     localMap == domain.localMap && globalMap == domain.globalMap
 
   override def equals(obj: Any): Boolean = {
     if (obj == null) return false
     if (super.equals(obj)) return true
     obj match {
-      case domain: CustomDomain[V] =>
+      case domain: CustomDomain[S] =>
         if (hashCode() == domain.hashCode()) {
           equivTo(domain)
         } else {
@@ -114,7 +105,7 @@ case class CustomDomain[V](private val localMap: Map[Local, AccessPath[V]],
 
   override def toString: String = sizeSummary.toString
 
-  def getLocalVals(contextMethod: SootMethod, stmt: Stmt, local: Local): Iterable[V] = {
+  def getLocalVals(contextMethod: SootMethod, stmt: Stmt, local: Local): Iterable[S] = {
     localMap.flatMap { case (l, accessPath) =>
       if (PreAnalyses.isAlias(local, l, stmt, stmt, contextMethod)) {
         accessPath.data.getOrElse(Set())
@@ -124,9 +115,9 @@ case class CustomDomain[V](private val localMap: Map[Local, AccessPath[V]],
     }
   }
 
-  def getAccessPath(l: Local): Option[AccessPath[V]] = localMap.get(l)
+  def getAccessPath(l: Local): Option[AccessPath[S]] = localMap.get(l)
 
-  def getAccessPath(ref: Ref): Option[AccessPath[V]] =
+  def getAccessPath(ref: Ref): Option[AccessPath[S]] =
     ref match {
       case Ref.GlobalRef(cls, fields) =>
         globalMap.get(cls) match {
@@ -140,7 +131,7 @@ case class CustomDomain[V](private val localMap: Map[Local, AccessPath[V]],
         }
     }
 
-  def withSubPath(ref: Ref, subPath: AccessPath[V]): CustomDomain[V] = {
+  def withSubPath(ref: Ref, subPath: AccessPath[S]): CustomDomain[S] = {
     ref match {
       case Ref.GlobalRef(cls, fields) =>
         copy(
@@ -159,7 +150,7 @@ case class CustomDomain[V](private val localMap: Map[Local, AccessPath[V]],
     }
   }
 
-  def killRef(ref: Ref): CustomDomain[V] =
+  def killRef(ref: Ref): CustomDomain[S] =
     ref match {
       case Ref.GlobalRef(cls, fields) =>
         copy(globalMap = (fields, globalMap.get(cls)) match {
@@ -175,11 +166,11 @@ case class CustomDomain[V](private val localMap: Map[Local, AccessPath[V]],
         })
     }
 
-  def withVal(ref: Ref, v: V): CustomDomain[V] = {
+  def withVal(ref: Ref, v: S): CustomDomain[S] = {
     withVals(ref, Set(v))
   }
 
-  def withVals(ref: Ref, vals: Set[V]): CustomDomain[V] = {
+  def withVals(ref: Ref, vals: Set[S]): CustomDomain[S] = {
     ref match {
       case Ref.GlobalRef(cls, fields) =>
         copy(

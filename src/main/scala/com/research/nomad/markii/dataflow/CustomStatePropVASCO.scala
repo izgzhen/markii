@@ -16,7 +16,7 @@ import vasco.{Context, ForwardInterProceduralAnalysis, ProgramRepresentation}
  * @param entryPoints entry-point methods
  * @tparam V Object abstract state
  */
-class CustomStatePropVASCO[V](entryPoints: List[SootMethod])
+class CustomStatePropVASCO[V](entryPoints: List[SootMethod], transformer: CustomObjectStateTransformer[V])
   extends ForwardInterProceduralAnalysis[SootMethod, soot.Unit, CustomDomain[V]] {
   type Domain = CustomDomain[V]
   type DomainContext = Context[SootMethod, soot.Unit, Domain]
@@ -31,7 +31,7 @@ class CustomStatePropVASCO[V](entryPoints: List[SootMethod])
         assigned(ctxMethod, assignStmt, ref, castExpr.getOp, ctx, input)
       case newExpr: NewExpr =>
         val sootClass = newExpr.getBaseType.getSootClass
-        killed.newInstance(ref, sootClass, assignStmt)
+        killed.newInstance(transformer, ref, sootClass, assignStmt)
       case rhsLocal: Local =>
         ctx.getAccessPath(rhsLocal) match {
           case Some(accessPath) =>
@@ -52,8 +52,8 @@ class CustomStatePropVASCO[V](entryPoints: List[SootMethod])
             killed.withSubPath(ref, accessPath)
           case None => killed
         }
-      case invokeExpr: InstanceInvokeExpr =>
-        killed.invokeMethodAssign(ref, invokeExpr, assignStmt)
+      // TODO: currently not supported for simplicity
+      // case invokeExpr: InstanceInvokeExpr => killed.invokeMethodAssign(ref, invokeExpr, assignStmt)
       case _ => killed
     }
   }
@@ -122,7 +122,7 @@ class CustomStatePropVASCO[V](entryPoints: List[SootMethod])
       case _ =>
         val stmt = unit.asInstanceOf[Stmt]
         if (stmt.containsInvokeExpr()) {
-          d.invokeMethod(stmt.getInvokeExpr, stmt)
+          d.invokeMethod(transformer, context.getMethod, stmt.getInvokeExpr, stmt)
         }
         d
     }

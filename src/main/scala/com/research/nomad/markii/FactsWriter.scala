@@ -80,7 +80,17 @@ class FactsWriter(val factDir: String) {
 
   def getNameCounter: Map[String, Int] = nameCounter.toMap
 
+  private val storedConstraints = mutable.Map[FactsWriter.Fact.Value, mutable.ArrayBuffer[List[Any]]]()
+
+  def getStoredConstraints(constraint: FactsWriter.Fact.Value): Iterable[List[Any]] =
+    storedConstraints.getOrElse(constraint, Iterable.empty)
+
   def writeConstraint(constraint: FactsWriter.Fact.Value, args: Any*): Unit = {
+    storedConstraints.getOrElseUpdate(constraint, mutable.ArrayBuffer()).addOne(args.toList)
+    writeConstraint_(constraint, args: _*)
+  }
+
+  private def writeConstraint_(constraint: FactsWriter.Fact.Value, args: Any*): Unit = {
     val builder = new StringBuilder
     var noTab = true
     for (arg <- args) {
