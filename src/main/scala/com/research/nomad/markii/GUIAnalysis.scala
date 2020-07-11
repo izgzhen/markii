@@ -58,10 +58,6 @@ object GUIAnalysis extends IAnalysis {
     // TODO: use a proper harness
     CallGraphManager.patchCallGraph()
 
-    if (debugMode) {
-      dumpCallgraph()
-    }
-
     CallGraphManager.saveOldCallGraph()
 
     // IFDS must run before VASCO since VASCO depends on IFDS as pre-analysis
@@ -101,34 +97,39 @@ object GUIAnalysis extends IAnalysis {
 
     // Dump abstractions
     if (debugMode) {
-      val printWriter = new PrintWriter("/tmp/abstractions.txt")
-      for (m <- analyzedMethods) {
-        printWriter.println("====== Method " + m.getSignature + " =======")
-        printWriter.println(m.getActiveBody)
-        for (unit <- m.getActiveBody.getUnits.asScala) {
-          val abstractions = ifdsSolver.ifdsResultsAt(unit)
-          val aftDomain = vascoSolution.getValueAfter(unit)
-          if ((abstractions != null && abstractions.size() > 0) || (aftDomain != null && aftDomain.nonEmpty)) {
-            if (abstractions != null && abstractions.size() > 0) {
-              for (value <- abstractions.asScala) {
-                for (abstraction <- value._2) {
-                  printWriter.println("\t\t" + value._1 + ": " + abstraction)
-                }
+      dumpCallgraph()
+      dumpAbstractions()
+    }
+  }
+
+  private def dumpAbstractions(): Unit = {
+    val printWriter = new PrintWriter("/tmp/abstractions.txt")
+    for (m <- analyzedMethods) {
+      printWriter.println("====== Method " + m.getSignature + " =======")
+      printWriter.println(m.getActiveBody)
+      for (unit <- m.getActiveBody.getUnits.asScala) {
+        val abstractions = ifdsSolver.ifdsResultsAt(unit)
+        val aftDomain = vascoSolution.getValueAfter(unit)
+        if ((abstractions != null && abstractions.size() > 0) || (aftDomain != null && aftDomain.nonEmpty)) {
+          if (abstractions != null && abstractions.size() > 0) {
+            for (value <- abstractions.asScala) {
+              for (abstraction <- value._2) {
+                printWriter.println("\t\t" + value._1 + ": " + abstraction)
               }
             }
-
-            printWriter.println("\tUnit: " + unit)
-            if (aftDomain != null && aftDomain.nonEmpty) {
-              printWriter.println("AFTDomain: ")
-              printWriter.println(aftDomain)
-            }
-
-            printWriter.println()
           }
+
+          printWriter.println("\tUnit: " + unit)
+          if (aftDomain != null && aftDomain.nonEmpty) {
+            printWriter.println("AFTDomain: ")
+            printWriter.println(aftDomain)
+          }
+
+          printWriter.println()
         }
       }
-      printWriter.close()
     }
+    printWriter.close()
   }
 
   private def analyzeViewNode(viewNode: ViewNode, ownerActivities: Set[SootClass]): Unit = {
@@ -213,8 +214,13 @@ object GUIAnalysis extends IAnalysis {
   }
 
   private def dumpCallgraph(): Unit = {
-    val printWriter: PrintWriter = new PrintWriter("/tmp/icfg.txt")
-    printWriter.print(Scene.v().getCallGraph.toString.replace(" ==> ", "\n\t==> "))
+    val printWriter: PrintWriter = new PrintWriter("/tmp/call-graph.txt")
+    for (edge <- Scene.v().getCallGraph.asScala) {
+      val source = edge.getSrc.method()
+      if (analyzedMethods.contains(source) && !Configs.isLibraryClass(source.getDeclaringClass.getName)) {
+        printWriter.println(edge.getSrc + "\n ==> " + edge.getTgt + "\n")
+      }
+    }
     printWriter.close()
   }
 
