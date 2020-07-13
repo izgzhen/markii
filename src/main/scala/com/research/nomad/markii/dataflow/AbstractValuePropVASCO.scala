@@ -8,7 +8,7 @@ import java.time.Instant
 
 import com.research.nomad.markii.analyses.PreVASCO
 import com.research.nomad.markii.dataflow.AbsNode.{ActNode, ListenerNode, ViewNode}
-import com.research.nomad.markii.{AppInfo, Constants, DynamicCFG, GUIAnalysis}
+import com.research.nomad.markii.{AppInfo, Constants, DynamicCFG, GUIAnalysis, Util}
 import io.github.izgzhen.msbase.{IOUtil, JsonUtil}
 import presto.android.gui.listener.EventType
 
@@ -158,10 +158,6 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
     }
   }
 
-  private def getUnitIndex(units: UnitPatchingChain, u: soot.Unit): Int = {
-    units.asScala.view.toSeq.indexOf(u)
-  }
-
 //  private var maxLog = Some(100)
   private var maxLog: Option[Int] = None
   private var logStateCounter = 0
@@ -189,7 +185,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
         maxLog = Some(maxLog.get - 1)
       }
     }
-    val idx = getUnitIndex(method.getActiveBody.getUnits, unit)
+    val idx = Util.getUnitIndex(method.getActiveBody.getUnits, unit)
     val obj = Map(
       "method" -> method.getSignature,
       "unit" -> unit.toString(),
@@ -289,7 +285,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
       for (dialogNode <- d.getOwnerDialogs(context.getMethod, stmt, viewBase)) {
         DynamicCFG.addViewHandlerToEventLoopDialog(dialogNode, handler) match {
           case Some((runner, invocation)) =>
-            aftProgramRepresentation.refreshCallgraph(runner)
+            aftProgramRepresentation.refreshCFGcache(runner)
             val callers = getCallers(context)
             if (callers != null) {
               for (caller <- callers.asScala) {
@@ -308,7 +304,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
         //        paths
         DynamicCFG.addViewHandlerToEventLoopAct(ownerActivity, handler) match {
           case Some((runner, invocation)) =>
-            aftProgramRepresentation.refreshCallgraph(runner)
+            aftProgramRepresentation.refreshCFGcache(runner)
             for (runnerContext <- getContexts(runner).asScala) {
               runnerContext.setValueBefore(invocation, topValue())
               runnerContext.setValueAfter(invocation, topValue())

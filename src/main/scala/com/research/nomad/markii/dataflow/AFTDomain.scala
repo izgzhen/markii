@@ -18,18 +18,27 @@ object DialogButtonType extends Enumeration {
   val POSITIVE, NEGATIVE, NEUTRAL = Value
 }
 
+case class AbsValSet[D](vals: Set[D] = Set()) extends AbsVal[AbsValSet[D]] {
+  override def meet(other: AbsValSet[D]): AbsValSet[D] = {
+    AbsValSet[D](vals ++ other.vals)
+  }
+
+  def map(f: D => D): AbsValSet[D] = AbsValSet[D](vals.map(f))
+}
+
 /**
  * Data domain of Abstract Flow Tree
  * NOTE: UPDATE STRUCTURAL METHODS when the data structure is changed
  */
-case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsNode]],
-                     private val globalNodeMap: Map[SootClass, AccessPath[AbsNode]],
+case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[AbsNode]]],
+                     private val globalNodeMap: Map[SootClass, AccessPath[AbsValSet[AbsNode]]],
                      // FIXME: consider aliasing carefully when writing to localNodeMap
                      nodeEdgeMap: Map[ViewNode, Set[ViewNode]],
                      nodeEdgeRevMap: Map[ViewNode, Set[ViewNode]],
                      nodeHandlerMap: Map[(ViewNode, EventType), Set[SootMethod]],
                      dialogHandlerMap: Map[(ViewNode, DialogButtonType.Value), Set[SootMethod]],
                      activityRootViewMap: Map[SootClass, Set[ViewNode]]) {
+
   /**
    * STRUCTURAL METHOD
    */
@@ -53,7 +62,7 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsNode]],
   def updateNodes(contextMethod: SootMethod, stmt: Stmt, local: Local, nodeToNode: AbsNode => AbsNode): AFTDomain = {
     copy(localNodeMap = localNodeMap.map { case (l, accessPath) =>
       if (PreAnalyses.isAlias(local, l, stmt, stmt, contextMethod)) {
-        (l, accessPath.updateData(nodeToNode))
+        (l, accessPath.updateData(x => x.map(nodeToNode)))
       } else {
         (l, accessPath)
       }
@@ -65,14 +74,14 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsNode]],
    */
   def mapViewNodes(nodeToNode: ViewNode => ViewNode): AFTDomain = {
     AFTDomain(
-      localNodeMap = localNodeMap.view.mapValues(_.updateData {
+      localNodeMap = localNodeMap.view.mapValues(_.updateData(_.map {
         case v: ViewNode => nodeToNode(v)
         case n => n
-      }).toMap,
-      globalNodeMap = globalNodeMap.view.mapValues(_.updateData {
+      })).toMap,
+      globalNodeMap = globalNodeMap.view.mapValues(_.updateData (_.map {
         case v: ViewNode => nodeToNode(v)
         case n => n
-      }).toMap,
+      })).toMap,
       nodeEdgeMap = nodeEdgeMap.map { case (key, values) => (nodeToNode(key), values.map(nodeToNode)) },
       nodeEdgeRevMap = nodeEdgeRevMap.map { case (key, values) => (nodeToNode(key), values.map(nodeToNode)) },
       nodeHandlerMap = nodeHandlerMap.map { case ((node, t), handlers) => ((nodeToNode(node), t), handlers) },
@@ -137,9 +146,12 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsNode]],
   }
 
   def getNodes(contextMethod: SootMethod, stmt: Stmt, local: Local): Iterable[AbsNode] = {
-    localNodeMap.flatMap { case (l, accessPath) =>
+    localNodeMap.flatMap { case (l, accessPaths) =>
       if (PreAnalyses.isAlias(local, l, stmt, stmt, contextMethod)) {
-        accessPath.data.getOrElse(Set())
+        accessPaths.data match {
+          case Some(a) => a.vals
+          case None => Set()
+        }
       } else {
         Set()
       }
@@ -194,9 +206,11 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsNode]],
     }
   }
 
-  def getAccessPath(l: Local): Option[AccessPath[AbsNode]] = localNodeMap.get(l)
+  type A = AccessPath[AbsValSet[AbsNode]]
 
-  def getAccessPath(ref: Ref): Option[AccessPath[AbsNode]] =
+  def getAccessPath(l: Local): Option[A] = localNodeMap.get(l)
+
+  def getAccessPath(ref: Ref): Option[A] =
     ref match {
       case Ref.GlobalRef(cls, fields) =>
         globalNodeMap.get(cls) match {
@@ -210,7 +224,7 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsNode]],
         }
     }
 
-  def withSubPath(ref: Ref, subPath: AccessPath[AbsNode]): AFTDomain = {
+  def withSubPath(ref: Ref, subPath: A): AFTDomain = {
     ref match {
       case Ref.GlobalRef(cls, fields) =>
         copy(
@@ -403,7 +417,7 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsNode]],
       case Ref.GlobalRef(cls, fields) =>
         copy(
           globalNodeMap = if (nodes.nonEmpty) {
-            globalNodeMap + (cls -> AccessPath(None).add(fields, nodes))
+            globalNodeMap + (cls -> AccessPath(None).add(fields, AbsValSet(nodes)))
           } else {
             globalNodeMap
           }
@@ -411,7 +425,7 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsNode]],
       case Ref.LocalRef(local, fields) =>
         copy(
           localNodeMap = if (nodes.nonEmpty) {
-            localNodeMap + (local -> AccessPath(None).add(fields, nodes))
+            localNodeMap + (local -> AccessPath(None).add(fields, AbsValSet(nodes)))
           } else {
             localNodeMap
           }
@@ -527,7 +541,7 @@ object AFTDomain {
     }).toMap
   }
 
-  def mergeMapOfAccessPath[K, D](m1: Map[K, AccessPath[D]],
+  def mergeMapOfAccessPath[K, D <: AbsVal[D]](m1: Map[K, AccessPath[D]],
                                  m2: Map[K, AccessPath[D]]): Map[K, AccessPath[D]] = {
     if (m1.equals(m2)) return m1
     mergeMaps(m1, m2, (m1: AccessPath[D], m2: AccessPath[D]) => m1.merge(m2))

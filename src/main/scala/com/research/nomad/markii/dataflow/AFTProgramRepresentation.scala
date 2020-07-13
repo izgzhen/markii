@@ -31,7 +31,7 @@ class AFTProgramRepresentation(entryPoints: List[SootMethod]) extends ProgramRep
     cfgCache(m)
   }
 
-  def refreshCallgraph(m: SootMethod): Unit = {
+  def refreshCFGcache(m: SootMethod): Unit = {
     cfgCache.put(m, new ExceptionalUnitGraph(m.getActiveBody))
   }
 

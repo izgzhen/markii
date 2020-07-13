@@ -1,6 +1,7 @@
 package com.example.test01;
 
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.os.Bundle;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -24,6 +25,8 @@ public class Main2Activity extends AppCompatActivity {
         Random rand = new Random();
         if (rand.nextInt() % 2 == 1) {
             finish();
+        } else {
+            startActivity(new Intent(this, Main3Activity.class));
         }
     }
 

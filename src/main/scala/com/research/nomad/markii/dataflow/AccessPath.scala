@@ -6,6 +6,10 @@ package com.research.nomad.markii.dataflow
 
 import scala.collection.mutable
 
+trait AbsVal[D] {
+  def meet(other: D): D
+}
+
 /**
  * Access path models an pointer with data and sub-fields
  *
@@ -13,10 +17,12 @@ import scala.collection.mutable
  * @param fields: fields to children access paths
  * @tparam D: Abstract data type
  */
-case class AccessPath[D](data: Option[Set[D]], fields: Map[String, AccessPath[D]] = Map[String, AccessPath[D]](), maxDepth: Int = 2) {
+case class AccessPath[D <: AbsVal[D]](data: Option[D],
+                                      fields: Map[String, AccessPath[D]] = Map[String, AccessPath[D]](),
+                                      maxDepth: Int = 3) {
   def merge(path: AccessPath[D]): AccessPath[D] = {
     val newData = (data, path.data) match {
-      case (Some(s1), Some(s2)) => Some(s1 ++ s2)
+      case (Some(s1), Some(s2)) => Some(s1.meet(s2))
       case (Some(s1), None) => Some(s1)
       case (None, Some(s2)) => Some(s2)
       case (None, None) => None
@@ -25,11 +31,11 @@ case class AccessPath[D](data: Option[Set[D]], fields: Map[String, AccessPath[D]
   }
 
   def updateData(f: D => D): AccessPath[D] = {
-    AccessPath(data = data.map(_.map(f)), fields)
+    AccessPath(data = data.map(f), fields)
   }
 
-  def traverse(): List[(List[String], Set[D])] = {
-    val m = mutable.Queue[(List[String], Set[D])]()
+  def traverse(): List[(List[String], D)] = {
+    val m = mutable.Queue[(List[String], D)]()
     data match {
       case Some(ds) => m.addOne((List(), ds))
       case None =>
@@ -44,13 +50,13 @@ case class AccessPath[D](data: Option[Set[D]], fields: Map[String, AccessPath[D]
 
   override def toString: String = {
     traverse().map { case (path, ds) =>
-      path.mkString(".") + ": " + ds.mkString(",")
+      path.mkString(".") + ": " + ds.toString
     }.mkString("\n\t")
   }
 
   def toJSONObj: Object = {
     traverse().map { case (path, ds) =>
-      (path.mkString("."), ds.mkString(","))
+      (path.mkString("."), ds.toString)
     }
   }
 
@@ -82,16 +88,52 @@ case class AccessPath[D](data: Option[Set[D]], fields: Map[String, AccessPath[D]
     }
   }
 
-  def getAllData: Set[D] = {
-    val subData = fields.values.flatMap(_.getAllData).toSet
-    subData ++ data.getOrElse(Set())
+  def updateData(fieldNames: List[String], valMapper: D => D): AccessPath[D] = {
+    truncatedFieldNames(fieldNames) match {
+      case ::(head, next) => fields.get(head) match {
+        case Some(subPath) => AccessPath(data, fields + (head -> subPath.updateData(next, valMapper)))
+        case None => this
+      }
+      case Nil => this.updateData(valMapper)
+    }
+  }
+
+  /**
+   * Merge all data in fields
+   * @return
+   */
+  def getAllFieldsData: Option[D] = {
+    val allData = fields.values.map(_.getAllData).toList
+    allData.fold(None) {
+      case (Some(d1), Some(d2)) => Some(d1.meet(d2))
+      case (Some(d1), _) => Some(d1)
+      case (_, Some(d2)) => Some(d2)
+      case _ => None
+    }
+  }
+  /**
+   * Merge all data in fields
+   * @return
+   */
+  def getAllData: Option[D] = {
+    val allData = data :: fields.values.map(_.getAllData).toList
+    allData.fold(None) {
+      case (Some(d1), Some(d2)) => Some(d1.meet(d2))
+      case (Some(d1), _) => Some(d1)
+      case (_, Some(d2)) => Some(d2)
+      case _ => None
+    }
   }
 
   def truncated(d: Int): AccessPath[D] = {
     if (d == 0)
       if (fields.nonEmpty) {
-        val subData = fields.values.flatMap(_.getAllData).toSet
-        AccessPath(data = data).add(List("*"), subData)
+        getAllFieldsData match {
+          case Some(fieldsD) =>
+            AccessPath(data = data).add(List("*"), fieldsD)
+          case None =>
+            AccessPath(data = data)
+        }
       } else {
         this
     } else {
@@ -112,13 +154,18 @@ case class AccessPath[D](data: Option[Set[D]], fields: Map[String, AccessPath[D]
     }
   }
 
-  def add(fieldNames: List[String], newData: Set[D]): AccessPath[D] = {
+  def add(fieldNames: List[String], newData: D): AccessPath[D] = {
     truncatedFieldNames(fieldNames) match {
       case ::(head, next) => fields.get(head) match {
         case Some(subPath) => AccessPath(data = data, fields = fields + (head -> subPath.add(next, newData)))
         case None => AccessPath(data = data, fields = fields + (head -> AccessPath(None).add(next, newData)))
       }
-      case Nil => AccessPath(data = Some(newData ++ data.getOrElse(Set())), fields = fields)
+      case Nil =>
+        val newData2 = data match {
+          case Some(d) => d.meet(newData)
+          case None => newData
+        }
+        AccessPath(data = Some(newData2), fields = fields)
     }
   }
 }

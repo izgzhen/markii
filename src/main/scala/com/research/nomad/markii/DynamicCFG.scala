@@ -21,6 +21,7 @@ import scala.jdk.CollectionConverters._
  * communication etc.
  *
  * FIXME: Current implementation is very hard to understand.
+ * FIXME: Comb through its relationship with CallGraphManager
  */
 object DynamicCFG {
   private var utilsBaseClass: SootClass = null
