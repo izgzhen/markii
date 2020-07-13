@@ -8,8 +8,8 @@ import java.io.PrintWriter
 
 import com.research.nomad.markii.analyses.PreVASCO
 import com.research.nomad.markii.dataflow.AbsNode.ViewNode
-import com.research.nomad.markii.dataflow.custom.Recorder
-import com.research.nomad.markii.dataflow.{AFTDomain, AbstractValue, AbstractValuePropIFDS, AbstractValuePropVASCO, CustomDomain, CustomStatePropVASCO}
+import com.research.nomad.markii.dataflow.custom.{Recorder, RecorderAbsValue}
+import com.research.nomad.markii.dataflow.{AFTDomain, AbsValSet, AbstractValue, AbstractValuePropIFDS, AbstractValuePropVASCO, CustomDomain, CustomStatePropVASCO}
 import com.research.nomad.markii.instrument.{AllInstrument, DialogCreateInstrument, DialogInitInstrument}
 import heros.InterproceduralCFG
 import heros.solver.IFDSSolver
@@ -44,7 +44,7 @@ object GUIAnalysis extends IAnalysis {
   private var ifdsSolver: IFDSSolver[soot.Unit, (Value, Set[AbstractValue]), SootMethod, InterproceduralCFG[soot.Unit, SootMethod]] = _
   private var icfg: JimpleBasedInterproceduralCFG = _
   private var vascoSolution: DataFlowSolution[soot.Unit, AFTDomain] = _
-  private var customVascoSolution: DataFlowSolution[soot.Unit, CustomDomain[Boolean]] = _
+  private var customVascoSolution: DataFlowSolution[soot.Unit, CustomDomain[AbsValSet[RecorderAbsValue]]] = _
 
   override def run(): Unit = {
     println("Pre-analysis time: " + Debug.v().getExecutionTime + " seconds")
@@ -98,33 +98,25 @@ object GUIAnalysis extends IAnalysis {
     // Dump abstractions
     if (debugMode) {
       dumpCallgraph()
-      dumpAbstractions()
+      dumpIFDSAbstractions("/tmp/ifds-abstractions.txt")
+      Util.dumpVASCOAbstractions[AFTDomain]("/tmp/vasco-abstractions.txt",
+        vascoSolution, x => x.nonEmpty, x => x.toString, analyzedMethods)
     }
   }
 
-  private def dumpAbstractions(): Unit = {
-    val printWriter = new PrintWriter("/tmp/abstractions.txt")
+  private def dumpIFDSAbstractions(outputPath: String): Unit = {
+    val printWriter = new PrintWriter(outputPath)
     for (m <- analyzedMethods) {
       printWriter.println("====== Method " + m.getSignature + " =======")
       printWriter.println(m.getActiveBody)
       for (unit <- m.getActiveBody.getUnits.asScala) {
         val abstractions = ifdsSolver.ifdsResultsAt(unit)
-        val aftDomain = vascoSolution.getValueAfter(unit)
-        if ((abstractions != null && abstractions.size() > 0) || (aftDomain != null && aftDomain.nonEmpty)) {
-          if (abstractions != null && abstractions.size() > 0) {
-            for (value <- abstractions.asScala) {
-              for (abstraction <- value._2) {
-                printWriter.println("\t\t" + value._1 + ": " + abstraction)
-              }
+        if (abstractions != null && abstractions.size() > 0) {
+          for (value <- abstractions.asScala) {
+            for (abstraction <- value._2) {
+              printWriter.println("\t\t" + value._1 + ": " + abstraction)
             }
           }
-
-          printWriter.println("\tUnit: " + unit)
-          if (aftDomain != null && aftDomain.nonEmpty) {
-            printWriter.println("AFTDomain: ")
-            printWriter.println(aftDomain)
-          }
-
           printWriter.println()
         }
       }
@@ -170,6 +162,7 @@ object GUIAnalysis extends IAnalysis {
       for (act <- ownerActivities) {
         val method = act.getMethodByNameUnsafe(methodName)
         if (method != null) {
+          DynamicCFG.addViewHandlerToEventLoopAct(act, method)
           writer.writeConstraint(FactsWriter.Fact.eventHandler, eventType, method, viewNode.nodeID)
           analyzeAnyHandlerPostVASCO(method)
         }
@@ -252,7 +245,7 @@ object GUIAnalysis extends IAnalysis {
       writer.getStoredConstraints(FactsWriter.Fact.eventHandler).map(
         args => (args(1).asInstanceOf[SootMethod], args.head.asInstanceOf[EventType])).toMap
 
-    val vascoProp = new CustomStatePropVASCO[Boolean](entrypointsFull ++ eventHandlers.keys.toList, Recorder)
+    val vascoProp = new CustomStatePropVASCO[AbsValSet[RecorderAbsValue]](entrypointsFull ++ eventHandlers.keys.toList, Recorder)
     println("VASCO starts")
     vascoProp.doAnalysis()
     println("VASCO finishes")

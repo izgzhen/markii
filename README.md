@@ -25,4 +25,6 @@ Supported facts (partial, see [`Fact`](https://blog.zhen-zhang.com/markii/api/co
   - The layout width of view `v` is `dim` (e.g. `fill_parent`)
 - `mainActivity(act: Class)`
   - The main activity of the APK is `act`
+- `idName(n: String, v: ViewID)`
+  - The id-name of view `v` is `n`
 - ...

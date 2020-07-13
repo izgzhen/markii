@@ -1,9 +1,13 @@
 # TODO: reduce code duplication
 
-test01:
+TEST01_APK := tests/test01/app/build/outputs/apk/debug/app-debug.apk
+
+build-test01:
 	cd tests/test01; ./gradlew assembleDebug
+
+test-test01: build-test01
 	mkdir -p /tmp/test01.facts
-	./build-run-markii.sh tests/test01/app/build/outputs/apk/debug/app-debug.apk /tmp/test01.facts
+	./build-run-markii.sh $(TEST01_APK) /tmp/test01.facts
 	python3 tests/compare_facts.py /tmp/test01.facts tests/test01.facts
 
 # The APK is built from tempodroid/tree/c647d51/case-studies/ValidRec
@@ -12,11 +16,19 @@ test-validrec:
 	./build-run-markii.sh tests/validrec/app-debug.apk /tmp/validrec.facts
 	python3 tests/compare_facts.py /tmp/validrec.facts tests/validrec.facts
 
-test-all: test01 test-validrec
+test-all: test-test01 test-validrec
 
-record-all:
-	./build-run-markii.sh tests/test01/app/build/outputs/apk/debug/app-debug.apk tests/test01.facts
+record-test01: build-test01
+	./build-run-markii.sh $(TEST01_APK) tests/test01.facts
+
+record-validrec:
 	./build-run-markii.sh tests/validrec/app-debug.apk tests/validrec.facts
+
+record-all: record-test01 record-validrec
+
+update-testBasic-apk: build-test01
+	cp $(TEST01_APK) src/test/resources/testBasic/app-debug.apk
+	@echo "TODO: manually copy over res and manifest from first step"
 
 JAVA_FILES := $(shell find src -name "*.java")
 SCALA_FILES := $(shell find src -name "*.scala")
