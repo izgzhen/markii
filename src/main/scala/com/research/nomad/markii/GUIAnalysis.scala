@@ -9,7 +9,7 @@ import java.io.PrintWriter
 import com.research.nomad.markii.analyses.PreVASCO
 import com.research.nomad.markii.dataflow.AbsNode.ViewNode
 import com.research.nomad.markii.dataflow.custom.{Recorder, RecorderAbsValue}
-import com.research.nomad.markii.dataflow.{AFTDomain, AbsValSet, AbstractValue, AbstractValuePropIFDS, AbstractValuePropVASCO, CustomDomain, CustomStatePropVASCO}
+import com.research.nomad.markii.dataflow.{AFTDomain, AbsValSet, AbstractValue, AbstractValuePropIFDS, AbstractValuePropVASCO, CustomStatePropVASCO}
 import com.research.nomad.markii.instrument.{AllInstrument, DialogCreateInstrument, DialogInitInstrument}
 import heros.InterproceduralCFG
 import heros.solver.IFDSSolver
@@ -44,7 +44,6 @@ object GUIAnalysis extends IAnalysis {
   private var ifdsSolver: IFDSSolver[soot.Unit, (Value, Set[AbstractValue]), SootMethod, InterproceduralCFG[soot.Unit, SootMethod]] = _
   private var icfg: JimpleBasedInterproceduralCFG = _
   private var vascoSolution: DataFlowSolution[soot.Unit, AFTDomain] = _
-  private var customVascoSolution: DataFlowSolution[soot.Unit, CustomDomain[AbsValSet[RecorderAbsValue]]] = _
 
   override def run(): Unit = {
     println("Pre-analysis time: " + Debug.v().getExecutionTime + " seconds")
@@ -90,10 +89,12 @@ object GUIAnalysis extends IAnalysis {
 
     runVASCO()
 
-    // Write more constraints and close writer
+    // Write more constraints
     writeConstraintsPostVASCO()
 
     runCustomVASCO()
+
+    writer.close()
 
     // Dump abstractions
     if (debugMode) {
@@ -250,12 +251,17 @@ object GUIAnalysis extends IAnalysis {
     vascoProp.doAnalysis()
     println("VASCO finishes")
 
-    if (sys.env.contains("BATCH_RUN")) {
-      customVascoSolution = Helper.getMeetOverValidPathsSolution(vascoProp)
-    } else {
-      customVascoSolution = Helper.getMeetOverValidPathsSolutionPar(vascoProp)
+    for ((handler, eventType) <- eventHandlers) {
+      val reachedMethods = CallGraphManager.reachableMethods(handler)
+      for (reached <- reachedMethods) {
+        if (reached.getDeclaringClass.isApplicationClass && reached.isConcrete && reached.hasActiveBody) {
+          for ((prevState, postState) <- Recorder.getTransitions(reached)) {
+            writer.writeConstraint(FactsWriter.Fact.recorderTransition,
+              handler, eventType, reached, prevState.id, postState.id)
+          }
+        }
+      }
     }
-    println("VASCO solution generated")
   }
 
   private def readConfigs(): Unit = {
@@ -318,8 +324,6 @@ object GUIAnalysis extends IAnalysis {
     for ((action, m) <- AppInfo.getIntents) {
       writer.writeConstraint(FactsWriter.Fact.intentFilter, action, m)
     }
-
-    writer.close()
   }
 
   private def analyzeActivityPreVasco(activityClass: SootClass): Unit = {

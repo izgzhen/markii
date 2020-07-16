@@ -15,7 +15,7 @@ trait CustomObjectStateTransformer[S <: AbsVal[S]] {
     None
   }
   def newActivity(sootClass: SootClass): Option[S]
-  def updatedInstance(s: S, instanceInvokeExpr: InstanceInvokeExpr): S
+  def updatedInstance(s: S, instanceInvokeExpr: InstanceInvokeExpr, callSite: Stmt): S
   def returnFromInstanceInvoke(s: S, invokeExpr: InvokeExpr): Option[S]
   def returnFromInvoke(invokeExpr: InvokeExpr): Option[S]
 }
@@ -166,7 +166,7 @@ case class CustomDomain[S <: AbsVal[S]](private val localMap: Map[Local, AccessP
     invokeExpr match {
       case instanceInvokeExpr: InstanceInvokeExpr =>
         updateVal(ctxMethod, stmt, instanceInvokeExpr.getBase.asInstanceOf[Local],
-          v => transformer.updatedInstance(v, instanceInvokeExpr))
+          v => transformer.updatedInstance(v, instanceInvokeExpr, stmt))
       case _ => this
     }
   }
