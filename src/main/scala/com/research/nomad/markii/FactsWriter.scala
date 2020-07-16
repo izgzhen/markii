@@ -58,7 +58,10 @@ object FactsWriter {
       recordButton, loadWebViewUrl, adViewClass, serviceClass, adViewIdName,
       showSuspiciousAd, showSuspiciousInterstitialAd, invokesReflectiveAPI, serviceClassLastName,
       downloadApp, actionButton,
-      showAd, showInterstitialAd // FIXME: factor into reachable + ad API set?
+      showAd, showInterstitialAd, // FIXME: factor into reachable + ad API set?
+
+      // For custom state
+      recorderTransition
       = Value
   }
 }

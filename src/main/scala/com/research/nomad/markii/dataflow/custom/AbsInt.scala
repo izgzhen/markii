@@ -35,7 +35,7 @@ object AbsInt extends CustomObjectStateTransformer[AbsIntVal] {
     None
   }
 
-  override def updatedInstance(prevVal: AbsIntVal, instanceInvokeExpr: InstanceInvokeExpr): AbsIntVal = {
+  override def updatedInstance(prevVal: AbsIntVal, instanceInvokeExpr: InstanceInvokeExpr, stmt: Stmt): AbsIntVal = {
     prevVal
   }
 
