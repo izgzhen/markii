@@ -10,14 +10,11 @@ import soot.jimple.{InstanceInvokeExpr, InvokeExpr, ParameterRef, Stmt, ThisRef}
 import soot.{Local, RefType, SootClass, SootMethod}
 
 trait CustomObjectStateTransformer[S <: AbsVal[S]] {
-  def initInstance(sootClass: SootClass): Option[S]
-  def fromAssign(ctx: CustomDomain[S], stmt: Stmt): Option[S] = {
-    None
-  }
-  def newActivity(sootClass: SootClass): Option[S]
-  def updatedInstance(s: S, instanceInvokeExpr: InstanceInvokeExpr, callSite: Stmt): S
-  def returnFromInstanceInvoke(s: S, invokeExpr: InvokeExpr): Option[S]
-  def returnFromInvoke(invokeExpr: InvokeExpr): Option[S]
+  def initInstance(sootClass: SootClass): Option[S] = None
+  def fromAssign(ctx: CustomDomain[S], stmt: Stmt): Option[S] = None
+  def updatedInstance(prev: S, instanceInvokeExpr: InstanceInvokeExpr, callSite: Stmt): S = prev
+  def returnFromInstanceInvoke(s: S, invokeExpr: InvokeExpr): Option[S] = None
+  def returnFromInvoke(invokeExpr: InvokeExpr): Option[S] = None
 }
 
 /**
@@ -96,12 +93,6 @@ case class CustomDomain[S <: AbsVal[S]](private val localMap: Map[Local, AccessP
     val methodClass = ctxMethodL.getDeclaringClass
     val localRef = Ref.from(stmt.getLeftOp)
     stmt.getRightOp match {
-      case _: ThisRef if Constants.isActivity(methodClass) =>
-        val killed = killRef(localRef)
-        transformer.newActivity(methodClass) match {
-          case Some(value) => return killed.withVal(localRef, value)
-          case None =>
-        }
       case parameterRef: ParameterRef =>
         return withAlias(localRef, Ref.from(parameterRef), aliases)
       case _ =>
