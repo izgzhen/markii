@@ -4,30 +4,23 @@
 
 package com.research.nomad.markii.dataflow.custom
 
-import com.research.nomad.markii.dataflow.{AbsValSet, CustomObjectStateTransformer, Ref}
+import com.research.nomad.markii.dataflow.{AbsValSet, CustomObjectStateTransformer}
 import soot.{SootClass, SootMethod}
-import soot.jimple.{InstanceInvokeExpr, InvokeExpr, Stmt}
+import soot.jimple.{InstanceInvokeExpr, Stmt}
 
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
-
-sealed abstract class RecorderAbsValue extends Product with Serializable
 
 object RecorderState extends Enumeration {
   val Started, Stopped = Value
 }
 
-object RecorderAbsValue {
-  final case class MediaRecorder(s: RecorderState.Value) extends RecorderAbsValue
-  final case class Activity(sootClass: SootClass) extends RecorderAbsValue
-}
+object Recorder extends CustomObjectStateTransformer[AbsValSet[RecorderState.Value]] {
+  type D = AbsValSet[RecorderState.Value]
 
-
-object Recorder extends CustomObjectStateTransformer[AbsValSet[RecorderAbsValue]] {
-  type D = AbsValSet[RecorderAbsValue]
   override def initInstance(sootClass: SootClass): Option[D] = {
     if (sootClass.getName == "android.media.MediaRecorder") {
-      Some(AbsValSet(Set(RecorderAbsValue.MediaRecorder(s = RecorderState.Stopped))))
+      Some(AbsValSet(Set(RecorderState.Stopped)))
     } else {
       None
     }
@@ -43,40 +36,19 @@ object Recorder extends CustomObjectStateTransformer[AbsValSet[RecorderAbsValue]
     m.getActiveBody.getUnits.asScala.flatMap(u => transitionSites.getOrElse(u.asInstanceOf[Stmt], Set())).toSet
   }
 
-  override def updatedInstance(prevVal: D, instanceInvokeExpr: InstanceInvokeExpr, callSite: Stmt): D = {
+  override def updatedInstance(prevVals: D, instanceInvokeExpr: InstanceInvokeExpr, callSite: Stmt): D = {
     if (instanceInvokeExpr.getMethod.getSignature == "<android.media.MediaRecorder: void start()>") {
-      for (prevVal <- prevVal.vals) {
-        prevVal match {
-          case RecorderAbsValue.MediaRecorder(isRecording) =>
-            transitionSites.getOrElseUpdate(callSite, mutable.Set()).add(isRecording, RecorderState.Started)
-          case RecorderAbsValue.Activity(_) =>
-        }
+      for (prevVal <- prevVals.vals) {
+        transitionSites.getOrElseUpdate(callSite, mutable.Set()).add((prevVal, RecorderState.Started))
       }
-      AbsValSet(Set(RecorderAbsValue.MediaRecorder(s = RecorderState.Started)))
+      AbsValSet(Set(RecorderState.Started))
     } else if (instanceInvokeExpr.getMethod.getSignature == "<android.media.MediaRecorder: void stop()>") {
-      for (prevVal <- prevVal.vals) {
-        prevVal match {
-          case RecorderAbsValue.MediaRecorder(isRecording) =>
-            transitionSites.getOrElseUpdate(callSite, mutable.Set()).add(isRecording, RecorderState.Stopped)
-          case RecorderAbsValue.Activity(_) =>
-        }
+      for (prevVal <- prevVals.vals) {
+        transitionSites.getOrElseUpdate(callSite, mutable.Set()).add(prevVal, RecorderState.Stopped)
       }
-      AbsValSet(Set(RecorderAbsValue.MediaRecorder(s = RecorderState.Stopped)))
+      AbsValSet(Set(RecorderState.Stopped))
     } else {
-      prevVal
+      prevVals
     }
-  }
-
-  override def returnFromInstanceInvoke(s: D, invokeExpr: InvokeExpr): Option[D] = {
-    None
-  }
-
-
-  override def returnFromInvoke(invokeExpr: InvokeExpr): Option[D] = {
-    None
-  }
-
-  override def newActivity(sootClass: SootClass): Option[D] = {
-    Some(AbsValSet(Set(RecorderAbsValue.Activity(sootClass))))
   }
 }

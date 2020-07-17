@@ -8,7 +8,7 @@ import java.io.PrintWriter
 
 import com.research.nomad.markii.analyses.PreVASCO
 import com.research.nomad.markii.dataflow.AbsNode.ViewNode
-import com.research.nomad.markii.dataflow.custom.{Recorder, RecorderAbsValue}
+import com.research.nomad.markii.dataflow.custom.{Recorder, RecorderState}
 import com.research.nomad.markii.dataflow.{AFTDomain, AbsValSet, AbstractValue, AbstractValuePropIFDS, AbstractValuePropVASCO, CustomStatePropVASCO}
 import com.research.nomad.markii.instrument.{AllInstrument, DialogCreateInstrument, DialogInitInstrument}
 import heros.InterproceduralCFG
@@ -246,7 +246,7 @@ object GUIAnalysis extends IAnalysis {
       writer.getStoredConstraints(FactsWriter.Fact.eventHandler).map(
         args => (args(1).asInstanceOf[SootMethod], args.head.asInstanceOf[EventType])).toMap
 
-    val vascoProp = new CustomStatePropVASCO[AbsValSet[RecorderAbsValue]](entrypointsFull ++ eventHandlers.keys.toList, Recorder)
+    val vascoProp = new CustomStatePropVASCO[AbsValSet[RecorderState.Value]](entrypointsFull ++ eventHandlers.keys.toList, Recorder)
     println("VASCO starts")
     vascoProp.doAnalysis()
     println("VASCO finishes")
