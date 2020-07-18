@@ -27,8 +27,8 @@ object Recorder extends CustomObjectStateTransformer[AbsValSet[RecorderState.Val
   }
 
   /**
-   * Key: prev-state, post-state
-   * Value: Set of statements
+   * Key: Statement
+   * Value: Set of possible transitions (prev-state, post-state)
    */
   private val transitionSites = mutable.Map[Stmt, mutable.Set[(RecorderState.Value, RecorderState.Value)]]()
 
