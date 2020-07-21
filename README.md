@@ -8,6 +8,12 @@ Android/Java Static Analysis Library.
 - [SBT](https://www.scala-sbt.org/index.html)
 - Java 8
 
+And then inside `lib/`:
+
+```
+bash install.sh
+```
+
 ## Usage
 
 ```
