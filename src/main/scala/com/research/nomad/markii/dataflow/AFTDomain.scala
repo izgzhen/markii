@@ -63,7 +63,7 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
   def updateNodes(contextMethod: SootMethod, stmt: Stmt, local: Local, nodeToNode: AbsNode => AbsNode): AFTDomain = {
     copy(localNodeMap = localNodeMap.map { case (l, accessPath) =>
       if (PreAnalyses.isAlias(local, l, stmt, stmt, contextMethod)) {
-        (l, accessPath.updateData(x => x.map(nodeToNode)))
+        (l, accessPath.updateData((x, _) => x.map(nodeToNode), None))
       } else {
         (l, accessPath)
       }
@@ -75,14 +75,14 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
    */
   def mapViewNodes(nodeToNode: ViewNode => ViewNode): AFTDomain = {
     AFTDomain(
-      localNodeMap = localNodeMap.view.mapValues(_.updateData(_.map {
+      localNodeMap = localNodeMap.view.mapValues(_.updateData((x, _) => x.map {
         case v: ViewNode => nodeToNode(v)
         case n => n
-      })).toMap,
-      globalNodeMap = globalNodeMap.view.mapValues(_.updateData (_.map {
+      }, None)).toMap,
+      globalNodeMap = globalNodeMap.view.mapValues(_.updateData((x, _) => x.map {
         case v: ViewNode => nodeToNode(v)
         case n => n
-      })).toMap,
+      }, None)).toMap,
       nodeEdgeMap = nodeEdgeMap.map { case (key, values) => (nodeToNode(key), values.map(nodeToNode)) },
       nodeEdgeRevMap = nodeEdgeRevMap.map { case (key, values) => (nodeToNode(key), values.map(nodeToNode)) },
       nodeHandlerMap = nodeHandlerMap.map { case ((node, t), handlers) => ((nodeToNode(node), t), handlers) },

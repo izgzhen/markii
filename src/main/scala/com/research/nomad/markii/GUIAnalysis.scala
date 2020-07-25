@@ -261,8 +261,12 @@ object GUIAnalysis extends IAnalysis {
       val reachedMethods = CallGraphManager.reachableMethods(handler)
       for (reached <- reachedMethods) {
         if (reached.getDeclaringClass.isApplicationClass && reached.isConcrete && reached.hasActiveBody) {
-          for ((prevState, postState) <- fromConfig.getTransitions(reached)) {
-            writer.writeFact(FactsWriter.Fact.apiStateTransition, handler, eventType, reached, prevState, postState)
+          for ((ref, prevState, postState) <- fromConfig.getTransitions(reached)) {
+            val refStr = ref match {
+              case Some(r) => r.toString
+              case None => "unknown"
+            }
+            writer.writeFact(FactsWriter.Fact.apiStateTransition, handler, eventType, reached, refStr, prevState, postState)
           }
         }
       }

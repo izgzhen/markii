@@ -6,7 +6,7 @@ package com.research.nomad.markii.dataflow.custom
 
 import java.io.FileReader
 
-import com.research.nomad.markii.dataflow.{AbsValSet, CustomObjectStateTransformer}
+import com.research.nomad.markii.dataflow.{AbsValSet, CustomObjectStateTransformer, Ref}
 import soot.{SootClass, SootMethod}
 import soot.jimple.{InstanceInvokeExpr, Stmt}
 
@@ -40,19 +40,19 @@ class FromConfig(configPath: String) extends CustomObjectStateTransformer[AbsVal
 
   /**
    * Key: Statement
-   * Value: Set of possible transitions (prev-state, post-state)
+   * Value: Set of possible transitions (ref-id, prev-state, post-state)
    */
-  private val transitionSites = mutable.Map[Stmt, mutable.Set[(String, String)]]()
+  private val transitionSites = mutable.Map[Stmt, mutable.Set[(Option[Ref], String, String)]]()
 
-  def getTransitions(m: SootMethod): Set[(String, String)] = {
+  def getTransitions(m: SootMethod): Set[(Option[Ref], String, String)] = {
     m.getActiveBody.getUnits.asScala.flatMap(u => transitionSites.getOrElse(u.asInstanceOf[Stmt], Set())).toSet
   }
 
-  override def updatedInstance(prevVals: D, instanceInvokeExpr: InstanceInvokeExpr, callSite: Stmt): D = {
+  override def updatedInstance(prevVals: D, instanceInvokeExpr: InstanceInvokeExpr, callSite: Stmt, ref: Option[Ref]): D = {
     api.transferMap.get(instanceInvokeExpr.getMethod.getSignature) match {
       case Some(nextState) =>
         for (prevVal <- prevVals.vals) {
-          transitionSites.getOrElseUpdate(callSite, mutable.Set()).add((prevVal, nextState))
+          transitionSites.getOrElseUpdate(callSite, mutable.Set()).add((ref, prevVal, nextState))
         }
         AbsValSet(Set(nextState))
       case None => prevVals
