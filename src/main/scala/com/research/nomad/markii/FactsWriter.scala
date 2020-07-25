@@ -61,7 +61,7 @@ object FactsWriter {
       showAd, showInterstitialAd, // FIXME: factor into reachable + ad API set?
 
       // For custom state
-      recorderTransition
+      apiStateTransition
       = Value
   }
 }
@@ -77,23 +77,23 @@ class FactsWriter(val factDir: String) {
   private val nameCounter = mutable.Map[String, Int]()
 
   Files.createDirectories(Paths.get(factDir))
-  for (constraint <- FactsWriter.Fact.values) {
-    writers.put(constraint.toString, new BufferedWriter(new FileWriter(factDir + "/" + constraint.toString + ".facts")))
+  for (fact <- FactsWriter.Fact.values) {
+    writers.put(fact.toString, new BufferedWriter(new FileWriter(factDir + "/" + fact.toString + ".facts")))
   }
 
   def getNameCounter: Map[String, Int] = nameCounter.toMap
 
-  private val storedConstraints = mutable.Map[FactsWriter.Fact.Value, mutable.ArrayBuffer[List[Any]]]()
+  private val storedFacts = mutable.Map[FactsWriter.Fact.Value, mutable.ArrayBuffer[List[Any]]]()
 
-  def getStoredConstraints(constraint: FactsWriter.Fact.Value): Iterable[List[Any]] =
-    storedConstraints.getOrElse(constraint, Iterable.empty)
+  def getStoredFacts(fact: FactsWriter.Fact.Value): Iterable[List[Any]] =
+    storedFacts.getOrElse(fact, Iterable.empty)
 
-  def writeConstraint(constraint: FactsWriter.Fact.Value, args: Any*): Unit = {
-    storedConstraints.getOrElseUpdate(constraint, mutable.ArrayBuffer()).addOne(args.toList)
-    writeConstraint_(constraint, args: _*)
+  def writeFact(fact: FactsWriter.Fact.Value, args: Any*): Unit = {
+    storedFacts.getOrElseUpdate(fact, mutable.ArrayBuffer()).addOne(args.toList)
+    writeFact_(fact, args: _*)
   }
 
-  private def writeConstraint_(constraint: FactsWriter.Fact.Value, args: Any*): Unit = {
+  private def writeFact_(fact: FactsWriter.Fact.Value, args: Any*): Unit = {
     val builder = new StringBuilder
     var noTab = true
     for (arg <- args) {
@@ -110,7 +110,7 @@ class FactsWriter(val factDir: String) {
     }
     builder.append("\n")
     val line = builder.toString
-    val name = constraint.toString
+    val name = fact.toString
     if (!written.contains((name, line))) {
       written.add((name, line))
       try getWriter(name).write(line)
@@ -124,20 +124,20 @@ class FactsWriter(val factDir: String) {
     }
   }
 
-  def writeDimensionConstraint(constraint: FactsWriter.Fact.Value, property: String, id: Int): Unit = {
+  def writeDimensionFact(fact: FactsWriter.Fact.Value, property: String, id: Int): Unit = {
     if (property.endsWith("dip")) {
       val dipIndex = property.indexOf("dip")
       val x = property.substring(0, dipIndex).toFloat
-      writeConstraint(FactsWriter.Fact.withName(constraint.toString + "DIP"), x.round, id)
+      writeFact(FactsWriter.Fact.withName(fact.toString + "DIP"), x.round, id)
       return
     }
     if (property.endsWith("sp")) {
       val spIndex = property.indexOf("sp")
       val x = property.substring(0, spIndex).toFloat
-      writeConstraint(FactsWriter.Fact.withName(constraint.toString + "SP"), x.round, id)
+      writeFact(FactsWriter.Fact.withName(fact.toString + "SP"), x.round, id)
       return
     }
-    writeConstraint(constraint, property, id)
+    writeFact(fact, property, id)
   }
 
   @throws[IOException]
