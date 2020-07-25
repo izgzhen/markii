@@ -17,9 +17,17 @@ $DIR/check-jdk-version
 
 APK_PATH=$(realpath $1)
 OUTPUT_PATH=$(realpath $2)
+if [ ! -z "$API_SEMANTICS_CONFIG" ]; then
+    API_SEMANTICS_CONFIG_PATH=$(realpath $API_SEMANTICS_CONFIG)
+fi
 
 cd $DIR
 if [ -z "$BATCH_RUN" ]; then
     ./markii b
 fi
-./markii a -p $APK_PATH -clientParam output:$OUTPUT_PATH
+if [ -z "$API_SEMANTICS_CONFIG" ]; then
+    ./markii a -p $APK_PATH -clientParam output:$OUTPUT_PATH
+else
+    ./markii a -p $APK_PATH -clientParam output:$OUTPUT_PATH \
+        -clientParam apiSemanticConfig:$API_SEMANTICS_CONFIG_PATH
+fi

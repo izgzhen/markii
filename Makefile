@@ -13,7 +13,7 @@ test-test01: build-test01
 # The APK is built from tempodroid/tree/c647d51/case-studies/ValidRec
 test-validrec:
 	mkdir -p /tmp/validrec.facts
-	./build-run-markii.sh tests/validrec/app-debug.apk /tmp/validrec.facts
+	API_SEMANTICS_CONFIG=tests/recorder.yaml ./build-run-markii.sh tests/validrec/app-debug.apk /tmp/validrec.facts
 	python3 tests/compare_facts.py /tmp/validrec.facts tests/validrec.facts
 
 test-all: test-test01 test-validrec
@@ -22,7 +22,7 @@ record-test01: build-test01
 	./build-run-markii.sh $(TEST01_APK) tests/test01.facts
 
 record-validrec:
-	./build-run-markii.sh tests/validrec/app-debug.apk tests/validrec.facts
+	API_SEMANTICS_CONFIG=tests/recorder.yaml ./build-run-markii.sh tests/validrec/app-debug.apk tests/validrec.facts
 
 record-all: record-test01 record-validrec
 

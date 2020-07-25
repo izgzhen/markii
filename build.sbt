@@ -22,6 +22,14 @@ libraryDependencies += "com.google.protobuf" % "protobuf-java" % "3.4.0"
 libraryDependencies +=
   "org.scala-lang.modules" %% "scala-parallel-collections" % "0.2.0"
 
+val circeVersion = "0.12.0"
+libraryDependencies ++= Seq(
+  "io.circe" %% "circe-core",
+  "io.circe" %% "circe-generic",
+  "io.circe" %% "circe-parser",
+  "io.circe" %% "circe-yaml"
+).map(_ % circeVersion)
+
 assemblyMergeStrategy in assembly := {
   case PathList("META-INF", xs @ _*) => MergeStrategy.discard
   case x => MergeStrategy.first
