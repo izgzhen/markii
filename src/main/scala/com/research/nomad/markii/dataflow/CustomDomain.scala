@@ -12,7 +12,7 @@ import soot.{Local, RefType, SootClass, SootMethod}
 trait CustomObjectStateTransformer[S <: AbsVal[S]] {
   def initInstance(sootClass: SootClass): Option[S] = None
   def fromAssign(ctx: CustomDomain[S], stmt: Stmt): Option[S] = None
-  def updatedInstance(prev: S, instanceInvokeExpr: InstanceInvokeExpr, callSite: Stmt): S = prev
+  def updatedInstance(prev: S, instanceInvokeExpr: InstanceInvokeExpr, callSite: Stmt, ref: Option[Ref]): S = prev
   def returnFromInstanceInvoke(s: S, invokeExpr: InvokeExpr): Option[S] = None
   def returnFromInvoke(invokeExpr: InvokeExpr): Option[S] = None
 }
@@ -56,7 +56,7 @@ case class CustomDomain[S <: AbsVal[S]](private val localMap: Map[Local, AccessP
    * STRUCTURAL METHOD
    */
   def updateVal(contextMethod: SootMethod, stmt: Stmt, local: Local,
-                valMapper: S => S): CustomDomain[S] = {
+                valMapper: (S, Option[Ref]) => S): CustomDomain[S] = {
     val globalRefs = Ref.from(local).fromAliases(getGlobalAliases).collect {
       case globalRef: Ref.GlobalRef => globalRef
     }
@@ -65,7 +65,7 @@ case class CustomDomain[S <: AbsVal[S]](private val localMap: Map[Local, AccessP
     }
     copy(localMap = localMap.map { case (l, accessPath) =>
       if (PreAnalyses.isAlias(local, l, stmt, stmt, contextMethod)) {
-        (l, accessPath.updateData(valMapper))
+        (l, accessPath.updateData(valMapper, None)) // FIXME: support local identifier
       } else {
         (l, accessPath)
       }
@@ -81,7 +81,7 @@ case class CustomDomain[S <: AbsVal[S]](private val localMap: Map[Local, AccessP
       var ret = accessPath
       for (globalRef <- globalRefs) {
         if (globalRef.cls == cls) {
-          ret = ret.updateData(globalRef.fields, valMapper)
+          ret = ret.updateData(globalRef.fields, valMapper, Some(globalRef))
         }
       }
       (cls, ret)
@@ -157,7 +157,7 @@ case class CustomDomain[S <: AbsVal[S]](private val localMap: Map[Local, AccessP
     invokeExpr match {
       case instanceInvokeExpr: InstanceInvokeExpr =>
         updateVal(ctxMethod, stmt, instanceInvokeExpr.getBase.asInstanceOf[Local],
-          v => transformer.updatedInstance(v, instanceInvokeExpr, stmt))
+          (v, ref) => transformer.updatedInstance(v, instanceInvokeExpr, stmt, ref))
       case _ => this
     }
   }

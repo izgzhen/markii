@@ -30,8 +30,8 @@ case class AccessPath[D <: AbsVal[D]](data: Option[D],
     AccessPath[D](newData, AFTDomain.mergeMapOfAccessPath(fields, path.fields))
   }
 
-  def updateData(f: D => D): AccessPath[D] = {
-    AccessPath(data = data.map(f), fields)
+  def updateData(f: (D, Option[Ref]) => D, ref: Option[Ref]): AccessPath[D] = {
+    AccessPath(data = data.map(d => f(d, ref)), fields)
   }
 
   def traverse(): List[(List[String], D)] = {
@@ -88,13 +88,20 @@ case class AccessPath[D <: AbsVal[D]](data: Option[D],
     }
   }
 
-  def updateData(fieldNames: List[String], valMapper: D => D): AccessPath[D] = {
+  /**
+   *
+   * @param fieldNames
+   * @param valMapper
+   * @param ref -- identify the updated program value
+   * @return
+   */
+  def updateData(fieldNames: List[String], valMapper: (D, Option[Ref]) => D, ref: Option[Ref] = None): AccessPath[D] = {
     truncatedFieldNames(fieldNames) match {
       case ::(head, next) => fields.get(head) match {
-        case Some(subPath) => AccessPath(data, fields + (head -> subPath.updateData(next, valMapper)))
+        case Some(subPath) => AccessPath(data, fields + (head -> subPath.updateData(next, valMapper, ref)))
         case None => this
       }
-      case Nil => this.updateData(valMapper)
+      case Nil => this.updateData(valMapper, ref)
     }
   }
 
