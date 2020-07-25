@@ -9,7 +9,7 @@ import java.io.PrintWriter
 import com.research.nomad.markii.analyses.PreVASCO
 import com.research.nomad.markii.dataflow.AbsNode.ViewNode
 import com.research.nomad.markii.dataflow.custom.FromConfig
-import com.research.nomad.markii.dataflow.{AFTDomain, AbsValSet, AbstractValue, AbstractValuePropIFDS, AbstractValuePropVASCO, CustomStatePropVASCO}
+import com.research.nomad.markii.dataflow.{AFTDomain, AbsAttr, AbsNode, AbsValSet, AbstractValue, AbstractValuePropIFDS, AbstractValuePropVASCO, CustomStatePropVASCO}
 import com.research.nomad.markii.instrument.{AllInstrument, DialogCreateInstrument, DialogInitInstrument}
 import heros.InterproceduralCFG
 import heros.solver.IFDSSolver
@@ -91,7 +91,7 @@ object GUIAnalysis extends IAnalysis {
     runVASCO()
 
     // Write more constraints
-    writeConstraintsPostVASCO()
+    writeFactsPostVASCO()
 
     if (apiSemanticConfig.nonEmpty) {
       runCustomVASCO()
@@ -247,7 +247,9 @@ object GUIAnalysis extends IAnalysis {
 
     val eventHandlers =
       writer.getStoredFacts(FactsWriter.Fact.eventHandler).map(
-        args => (args(1).asInstanceOf[SootMethod], args.head.asInstanceOf[EventType])).toMap
+        args => (args(1).asInstanceOf[SootMethod], args.head.asInstanceOf[EventType])).toMap ++
+      writer.getStoredFacts(FactsWriter.Fact.enqueuedWorkRequest).map(
+        args => (args(2).asInstanceOf[SootMethod], EventType.implicit_time_tick)).toMap
 
     val fromConfig = new FromConfig(apiSemanticConfig.get)
     val vascoProp = new CustomStatePropVASCO[AbsValSet[String]](entrypointsFull ++ eventHandlers.keys.toList, fromConfig)
@@ -294,7 +296,7 @@ object GUIAnalysis extends IAnalysis {
     System.out.println("======================== IFDS Solver finished ========================")
   }
 
-  private def writeConstraintsPostVASCO(): Unit = {
+  private def writeFactsPostVASCO(): Unit = {
     for (act <- AppInfo.allActivities) {
       for ((handler, event) <- AppInfo.getActivityHandlers(act)) {
         analyzeAnyHandlerPostVASCO(handler)
@@ -478,6 +480,20 @@ object GUIAnalysis extends IAnalysis {
               }
               if (invokedMethodClass.getName == "com.google.ads.consent.ConsentForm" && invokedMethod.getName == "load") {
                 writer.writeFact(FactsWriter.Fact.loadGoogleConsentForm, handler, reached)
+              }
+              if (invokedMethodClass.getName == "androidx.work.WorkManager" && invokedMethod.getName == "enqueue") {
+                val request = invokeExpr.getArg(0).asInstanceOf[Local]
+                val aftDomain = vascoSolution.getValueBefore(stmt)
+                if (aftDomain != null) {
+                  for (node <- aftDomain.getNodes(reached, stmt, request)) {
+                    node match {
+                      case AbsNode.UnifiedObjectNode(absName, absAttrs) =>
+                        val doWork = absAttrs("workerClass").asInstanceOf[AbsAttr.ClassVal].c.getMethodByName("doWork")
+                        writer.writeFact(FactsWriter.Fact.withName("enqueued" + absName), handler, reached, doWork)
+                        analyzeAnyHandlerPostVASCO(doWork)
+                    }
+                  }
+                }
               }
               if (invokedMethodClass.getName == "android.webkit.WebView" && invokedMethod.getName == "loadUrl") {
                 var arg0 = "ANY"

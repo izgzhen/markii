@@ -5,12 +5,13 @@
 package com.research.nomad.markii.dataflow
 
 import com.research.nomad.markii.{AppInfo, Constants, PreAnalyses}
-import com.research.nomad.markii.dataflow.AbsNode.{ActNode, LayoutParamsNode, ListenerNode, ViewNode}
+import com.research.nomad.markii.dataflow.AbsNode.{ActNode, LayoutParamsNode, ListenerNode, UnifiedObjectNode, ViewNode}
 import presto.android.gui.listener.EventType
 import presto.android.xml.AndroidView
-import soot.jimple.{IntConstant, Stmt}
+import soot.jimple.{AssignStmt, InstanceInvokeExpr, IntConstant, Stmt}
 import soot.{Local, SootClass, SootMethod, Value}
 
+import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
 object DialogButtonType extends Enumeration {
@@ -249,6 +250,18 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
     inflateAFT(stmt, viewNode, androidView).withEdge(ctxMethod, stmt, dialogLocal, viewNode)
   }
 
+  def updateUnifiedObjectNodes(ctxMethod: SootMethod, stmt: Stmt, instanceInvokeExpr: InstanceInvokeExpr): AFTDomain = {
+    val baseLocal = instanceInvokeExpr.getBase.asInstanceOf[Local]
+    updateNodes(ctxMethod, stmt, baseLocal, {
+      case n@UnifiedObjectNode(absName, attrs) =>
+        UnifiedObjectAPI.invokeFrom(absName, attrs, instanceInvokeExpr) match {
+          case Some(newAttrs) => UnifiedObjectNode(absName, newAttrs)
+          case None => n
+        }
+      case n => n
+    })
+  }
+
   def setContentViewDialog(ctxMethod: SootMethod, stmt: Stmt, dialogLocal: Local, viewLocal: Local): AFTDomain = {
     var d = copy()
     for (viewNode <- getViewNodes(ctxMethod, stmt, viewLocal)) {
@@ -435,6 +448,10 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
 
   def newView(ref: Ref, sootClass: SootClass, stmt: Stmt): AFTDomain = {
     withNode(ref, ViewNode(stmt, sootClass = Some(sootClass), androidView = null))
+  }
+
+  def newUnifiedObject(ref: Ref, sootClass: SootClass, stmt: Stmt): AFTDomain = {
+    withNode(ref, UnifiedObjectAPI.newFrom(sootClass))
   }
 
   def newLayoutParams(ref: Ref): AFTDomain = {
