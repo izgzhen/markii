@@ -12,6 +12,14 @@ import soot.jimple.Stmt
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
+sealed abstract class AbsAttr extends Product with Serializable
+
+object AbsAttr {
+  final case class IntVal(i: Int) extends AbsAttr
+  final case class StrVal(s: String) extends AbsAttr
+  final case class ClassVal(c: SootClass) extends AbsAttr
+}
+
 /**
  * Node in Abstract Flow Tree
  */
@@ -78,4 +86,6 @@ object AbsNode {
   final case class ListenerNode(listener: SootClass) extends AbsNode
 
   final case class LayoutParamsNode(attrs: Set[(AndroidView.ViewAttr, String)] = Set()) extends AbsNode
+
+  final case class UnifiedObjectNode(absName: String, absAttrs: Map[String, AbsAttr]) extends AbsNode
 }

@@ -60,6 +60,9 @@ object FactsWriter {
       downloadApp, actionButton,
       showAd, showInterstitialAd, // FIXME: factor into reachable + ad API set?
 
+      // For UnifiedObjectAPI
+      enqueuedWorkRequest,
+
       // For custom state
       apiStateTransition
       = Value

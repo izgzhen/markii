@@ -16,7 +16,12 @@ test-validrec:
 	API_SEMANTICS_CONFIG=tests/recorder.yaml ./build-run-markii.sh tests/validrec/app-debug.apk /tmp/validrec.facts
 	python3 tests/compare_facts.py /tmp/validrec.facts tests/validrec.facts
 
-test-all: test-test01 test-validrec
+test-invalidrec:
+	mkdir -p /tmp/invalidrec.facts
+	API_SEMANTICS_CONFIG=tests/recorder.yaml ./build-run-markii.sh tests/invalidrec/app-debug.apk /tmp/invalidrec.facts
+	python3 tests/compare_facts.py /tmp/invalidrec.facts tests/invalidrec.facts
+
+test-all: test-test01 test-validrec test-invalidrec
 
 record-test01: build-test01
 	./build-run-markii.sh $(TEST01_APK) tests/test01.facts
@@ -24,7 +29,10 @@ record-test01: build-test01
 record-validrec:
 	API_SEMANTICS_CONFIG=tests/recorder.yaml ./build-run-markii.sh tests/validrec/app-debug.apk tests/validrec.facts
 
-record-all: record-test01 record-validrec
+record-invalidrec:
+	API_SEMANTICS_CONFIG=tests/recorder.yaml ./build-run-markii.sh tests/invalidrec/app-debug.apk tests/invalidrec.facts
+
+record-all: record-test01 record-validrec record-invalidrec
 
 update-testBasic-apk: build-test01
 	cp $(TEST01_APK) src/test/resources/testBasic/app-debug.apk

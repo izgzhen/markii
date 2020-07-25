@@ -15,7 +15,7 @@ import presto.android.gui.listener.EventType
 import scala.jdk.CollectionConverters._
 import soot.jimple.internal.{JIdentityStmt, JimpleLocal}
 import soot.jimple.{AssignStmt, CastExpr, InstanceFieldRef, InstanceInvokeExpr, IntConstant, InvokeExpr, NewExpr, ReturnStmt, StaticFieldRef, Stmt, ThisRef}
-import soot.{Local, RefType, Scene, SootClass, SootMethod, UnitPatchingChain, Value}
+import soot.{Local, RefType, Scene, SootClass, SootMethod, Value}
 import vasco.{Context, ForwardInterProceduralAnalysis, ProgramRepresentation}
 
 import scala.collection.mutable
@@ -67,6 +67,8 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
           killed.newListener(ref, sootClass)
         } else if (AppInfo.hier.isSubclassOf(sootClass, Constants.layoutParamsClass)) {
           killed.newLayoutParams(ref)
+        } else if (UnifiedObjectAPI.isBaseClass(sootClass)) {
+          killed.newUnifiedObject(ref, sootClass, assignStmt)
         } else {
           killed
         }
@@ -151,6 +153,11 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
               }
             case _ => killed
           }
+        } else if (invokeExpr.isInstanceOf[InstanceInvokeExpr] &&
+                   UnifiedObjectAPI.isBaseClass(invokeExpr.getMethod.getDeclaringClass)) {
+          // TODO: rewrite this whole thing with CustomState, use alias and analyze semantics
+          val base = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase
+          assigned(ctxMethod, assignStmt, ref, base, ctx, input)
         } else {
           killed
         }
@@ -403,6 +410,14 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
               }
               println("Unhandled: " + invokeExpr.getMethod.getSignature)
             }
+          }
+          invokeExpr match {
+            case instanceInvokeExpr: InstanceInvokeExpr =>
+              val sootClass = instanceInvokeExpr.getMethod.getDeclaringClass
+              if (UnifiedObjectAPI.isBaseClass(sootClass)) {
+                return d.updateUnifiedObjectNodes(context.getMethod, stmt, instanceInvokeExpr)
+              }
+            case _ =>
           }
         }
         d
