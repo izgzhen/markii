@@ -1,6 +1,9 @@
 MarkII
 ======
 
+[![codecov](https://codecov.io/gh/izgzhen/markii/branch/master/graph/badge.svg)](https://codecov.io/gh/izgzhen/markii)
+![CI](https://github.com/izgzhen/markii/workflows/CI/badge.svg)
+
 Android/Java Static Analysis Library.
 
 ## Dependency
