@@ -4,7 +4,9 @@ description := "Mark II is a prototype Android UI analyzer to test out fancy ide
 
 version := "0.1"
 
-scalaVersion := "2.13.1"
+// scala version needs to align with SBT version
+// https://stackoverflow.com/questions/49000201/whats-the-relationship-of-the-versions-of-scala-when-i-use-sbt-to-build-a-scala
+scalaVersion := "2.12.4"
 
 resolvers += "jitpack" at "https://jitpack.io"
 
@@ -19,8 +21,6 @@ libraryDependencies += "com.github.rohanpadhye" % "vasco" % "5598bcf6dc"
 libraryDependencies += "com.github.izgzhen" % "msbase.scala" % "master-SNAPSHOT"
 
 libraryDependencies += "com.google.protobuf" % "protobuf-java" % "3.4.0"
-libraryDependencies +=
-  "org.scala-lang.modules" %% "scala-parallel-collections" % "0.2.0"
 
 val circeVersion = "0.12.0"
 libraryDependencies ++= Seq(

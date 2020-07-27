@@ -25,5 +25,7 @@ jobs:
     # Runs a single command using the runners shell
     - name: Test analyzer
       run: |
-        ANDROID_SDK=$PWD/android-tools-linux sbt test
+        ANDROID_SDK=$PWD/android-tools-linux sbt clean coverage test coverageReport
         ANDROID_SDK=$PWD/android-tools-linux make test-all
+    - name: Codecov
+      uses: codecov/codecov-action@v1.0.12
