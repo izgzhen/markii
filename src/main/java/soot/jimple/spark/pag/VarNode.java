@@ -30,10 +30,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import soot.AnySubType;
-import soot.Context;
-import soot.RefLikeType;
-import soot.Type;
+import soot.*;
 import soot.toolkits.scalar.Pair;
 
 /**
@@ -132,7 +129,7 @@ public abstract class VarNode extends ValNode implements Comparable {
   VarNode(PAG pag, Object variable, Type t) {
     super(pag, t);
     if (!(t instanceof RefLikeType) || t instanceof AnySubType) {
-      throw new RuntimeException("Attempt to create VarNode of type " + t);
+      logger.warn("Attempt to create VarNode of type " + t);
     }
     this.variable = variable;
     pag.getVarNodeNumberer().add(this);
