@@ -26,7 +26,7 @@ public abstract class CustomAnalysis<M,N,A> extends ForwardInterProceduralAnalys
         // Perform work-list based analysis
         while (!worklist.isEmpty()) {
             // Get the newest context on the work-list
-            Context<M, N, A> currentContext = worklist.last();
+            VascoContext<M, N, A> currentContext = worklist.last();
 
             // If this context has no more nodes to analyze, then take it out of the work-list
             if (currentContext.getWorkList().isEmpty()) {
@@ -80,7 +80,7 @@ public abstract class CustomAnalysis<M,N,A> extends ForwardInterProceduralAnalys
                             CallSite<M, N, A> callSite = new CallSite<M, N, A>(currentContext, node);
 
                             // Check if the called method has a context associated with this entry flow:
-                            Context<M, N, A> targetContext = getContext(targetMethod, entryValue);
+                            VascoContext<M, N, A> targetContext = getContext(targetMethod, entryValue);
                             // If not, then set 'targetContext' to a new context with the given entry flow.
                             if (targetContext == null) {
                                 targetContext = initContext(targetMethod, entryValue);
@@ -167,7 +167,7 @@ public abstract class CustomAnalysis<M,N,A> extends ForwardInterProceduralAnalys
                 if (callers != null) {
                     for (CallSite<M, N, A> callSite : callers) {
                         // Extract the calling context and node from the caller site.
-                        Context<M, N, A> callingContext = callSite.getCallingContext();
+                        VascoContext<M, N, A> callingContext = callSite.getCallingContext();
                         N callNode = callSite.getCallNode();
                         // Add the calling unit to the calling context's node work-list.
                         callingContext.getWorkList().add(callNode);
@@ -178,10 +178,10 @@ public abstract class CustomAnalysis<M,N,A> extends ForwardInterProceduralAnalys
 
                 // Free memory on-the-fly if not needed
                 if (freeResultsOnTheFly) {
-                    Set<Context<M, N, A>> reachableContexts = contextTransitions.reachableSet(currentContext, true);
+                    Set<VascoContext<M, N, A>> reachableContexts = contextTransitions.reachableSet(currentContext, true);
                     // If any reachable contexts exist on the work-list, then we cannot free memory
                     boolean canFree = true;
-                    for (Context<M, N, A> reachableContext : reachableContexts) {
+                    for (VascoContext<M, N, A> reachableContext : reachableContexts) {
                         if (worklist.contains(reachableContext)) {
                             canFree = false;
                             break;
@@ -190,7 +190,7 @@ public abstract class CustomAnalysis<M,N,A> extends ForwardInterProceduralAnalys
                     // If no reachable contexts on the stack, then free memory associated
                     // with this context
                     if (canFree) {
-                        for (Context<M, N, A> reachableContext : reachableContexts) {
+                        for (VascoContext<M, N, A> reachableContext : reachableContexts) {
                             reachableContext.freeMemory();
                         }
                     }
@@ -200,8 +200,8 @@ public abstract class CustomAnalysis<M,N,A> extends ForwardInterProceduralAnalys
         }
 
         // Sanity check
-        for (List<Context<M, N, A>> contextList : contexts.values()) {
-            for (Context<M, N, A> context : contextList) {
+        for (List<VascoContext<M, N, A>> contextList : contexts.values()) {
+            for (VascoContext<M, N, A> context : contextList) {
                 if (context.isAnalysed() == false) {
                     System.err.println("*** ATTENTION ***: Only partial analysis of X" + context +
                             " " + context.getMethod());

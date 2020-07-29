@@ -16,7 +16,7 @@ import scala.jdk.CollectionConverters._
 import soot.jimple.internal.{JIdentityStmt, JimpleLocal}
 import soot.jimple.{AssignStmt, CastExpr, InstanceFieldRef, InstanceInvokeExpr, IntConstant, InvokeExpr, NewExpr, ReturnStmt, StaticFieldRef, Stmt, ThisRef}
 import soot.{Local, RefType, Scene, SootClass, SootMethod, Value}
-import vasco.{Context, ForwardInterProceduralAnalysis, ProgramRepresentation}
+import vasco.{VascoContext, ForwardInterProceduralAnalysis, ProgramRepresentation}
 
 import scala.collection.mutable
 
@@ -28,7 +28,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
   extends ForwardInterProceduralAnalysis[SootMethod, soot.Unit, AFTDomain] {
 
   type Domain = AFTDomain
-  type DomainContext = Context[SootMethod, soot.Unit, Domain]
+  type DomainContext = VascoContext[SootMethod, soot.Unit, Domain]
 
   private val RETURN_LOCAL = new JimpleLocal("@return", null)
 

@@ -13,10 +13,14 @@ jobs:
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
-    - name: Set up dependencies
-      run: |
-        bash .github/workflows/setup-deps.sh
+    - name: Cache android dependencies
+      id: cache-android
+      uses: actions/cache@v2
+      with:
+        path: android-tools-linux
+        key: ${{ runner.os }}
     - name: Set up android dependencies
+      if: steps.cache-android.outputs.cache-hit != 'true'
       run: |
         wget --quiet https://github.com/izgzhen/android-platforms/releases/download/v0.1/android-tools-linux.zip
         unzip -q android-tools-linux.zip -d android-tools-linux
