@@ -2,5 +2,5 @@ baseClassName: "android.media.MediaRecorder"
 states: ["STOPPED", "STARTED"]
 initialState: "STOPPED"
 transferMap:
-  "<android.media.MediaRecorder: void start()>": "STOPPED"
-  "<android.media.MediaRecorder: void stop()>": "STARTED"
+  "<android.media.MediaRecorder: void start()>": "STARTED"
+  "<android.media.MediaRecorder: void stop()>": "STOPPED"
