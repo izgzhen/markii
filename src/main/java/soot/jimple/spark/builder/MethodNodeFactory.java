@@ -22,6 +22,8 @@ package soot.jimple.spark.builder;
  * #L%
  */
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import soot.ArrayType;
 import soot.Local;
 import soot.PointsToAnalysis;
@@ -79,6 +81,8 @@ import soot.toolkits.scalar.Pair;
  * @author Ondrej Lhotak
  */
 public class MethodNodeFactory extends AbstractShimpleValueSwitch {
+
+  private static final Logger logger = LoggerFactory.getLogger(MethodNodeFactory.class);
 
   protected final RefType rtClass;
   protected final RefType rtStringType;
@@ -433,7 +437,7 @@ public class MethodNodeFactory extends AbstractShimpleValueSwitch {
 
   @Override
   final public void defaultCase(Object v) {
-    throw new RuntimeException("failed to handle " + v);
+    logger.warn("failed to handle " + v);
   }
 
   @Override
