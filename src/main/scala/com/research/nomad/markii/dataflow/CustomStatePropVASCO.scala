@@ -10,7 +10,7 @@ import io.github.izgzhen.msbase.{IOUtil, JsonUtil}
 import soot.{Local, SootMethod, Value}
 import soot.jimple.{AssignStmt, CastExpr, Constant, InstanceFieldRef, InstanceInvokeExpr, NewExpr, ParameterRef, ReturnStmt, StaticFieldRef, Stmt, ThisRef}
 import soot.jimple.internal.{JIdentityStmt, JimpleLocal}
-import vasco.{Context, CustomAnalysis, ProgramRepresentation}
+import vasco.{VascoContext, CustomAnalysis, ProgramRepresentation}
 
 /**
  * TODO: implement AbstractValuePropVASCO with it
@@ -20,7 +20,7 @@ import vasco.{Context, CustomAnalysis, ProgramRepresentation}
 class CustomStatePropVASCO[V <: AbsVal[V]](entryPoints: List[SootMethod], transformer: CustomObjectStateTransformer[V])
   extends CustomAnalysis[SootMethod, soot.Unit, CustomDomain[V]] {
   type Domain = CustomDomain[V]
-  type DomainContext = Context[SootMethod, soot.Unit, Domain]
+  type DomainContext = VascoContext[SootMethod, soot.Unit, Domain]
 
   private def logState(method: SootMethod, unit: soot.Unit, d: Domain): Unit = {
     if (!GUIAnalysis.isDebugMode) return

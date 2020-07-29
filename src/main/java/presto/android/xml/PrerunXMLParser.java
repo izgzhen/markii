@@ -11,7 +11,6 @@ package presto.android.xml;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.sun.org.apache.xerces.internal.impl.io.MalformedByteSequenceException;
 import org.w3c.dom.*;
 import org.xml.sax.SAXException;
 import presto.android.Configs;
@@ -128,13 +127,7 @@ public class PrerunXMLParser {
       Logger.err(getClass().getSimpleName(), "invalid xml file. Error message: " + e.getMessage()
                   + " File name: " + file);
       return;
-    } catch (MalformedByteSequenceException e) {
-      Logger.err(getClass().getSimpleName(), e.getMessage() + " " + file);
-      System.exit(1);
-      return;
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    } catch (ParserConfigurationException e) {
+    } catch (IOException | ParserConfigurationException e) {
       throw new RuntimeException(e);
     }
 
