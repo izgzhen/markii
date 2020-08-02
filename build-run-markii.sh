@@ -5,12 +5,6 @@
 set -e
 set -x
 
-if ! command -v sbt &> /dev/null
-then
-    echo "sbt could not be found. Install it here -- https://www.scala-sbt.org/1.x/docs/Setup.html"
-    exit
-fi
-
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 $DIR/check-jdk-version
@@ -23,6 +17,12 @@ fi
 
 cd $DIR
 if [ -z "$BATCH_RUN" ]; then
+    if ! command -v sbt &> /dev/null
+    then
+        echo "sbt could not be found. Install it here -- https://www.scala-sbt.org/1.x/docs/Setup.html"
+        exit
+    fi
+
     ./markii b
 fi
 if [ -z "$API_SEMANTICS_CONFIG" ]; then
