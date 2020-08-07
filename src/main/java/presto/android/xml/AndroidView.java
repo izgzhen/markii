@@ -36,7 +36,7 @@ public class AndroidView implements IAndroidView {
 
   private AndroidView parent;
   private final ArrayList<IAndroidView> children;
-  private Map<EventType, String> inlineEventTypeMethodNameMap;
+  private Map<EventType, MethodInfo> inlineEventTypeMethodNameMap;
   private SootClass klass;
   private Integer id;
   private Map<AndroidView.ViewAttr, String> viewAttrs = Maps.newHashMap();
@@ -51,7 +51,7 @@ public class AndroidView implements IAndroidView {
 
   public AndroidView() {
     this.children = Lists.newArrayList();
-    this.inlineEventTypeMethodNameMap = new HashMap<EventType, String>();
+    this.inlineEventTypeMethodNameMap = new HashMap<EventType, MethodInfo>();
   }
 
   @Override
@@ -377,11 +377,11 @@ public class AndroidView implements IAndroidView {
     return attributes;
   }
 
-  public void setInlineClickHandler(String methodName) {
-    inlineEventTypeMethodNameMap.put(EventType.click, methodName);
+  public void setInlineClickHandler(String methodName, String fileName) {
+    inlineEventTypeMethodNameMap.put(EventType.click, new MethodInfo(methodName, fileName));
   }
 
-  public Map<EventType, String> getInlineClickHandlers() {
+  public Map<EventType, MethodInfo> getInlineClickHandlers() {
     return this.inlineEventTypeMethodNameMap;
   }
 }
