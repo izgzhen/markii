@@ -16,6 +16,7 @@ if [ -z "$3" ]; then
 else
     TEMPFILE_REMOVE=$3
 fi
+
 if [ ! -z "$API_SEMANTICS_CONFIG" ]; then
     API_SEMANTICS_CONFIG_PATH=$(realpath $API_SEMANTICS_CONFIG)
 fi

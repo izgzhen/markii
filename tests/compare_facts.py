@@ -11,7 +11,7 @@ def is_int(s):
         return False
 
 def assert_eq_set(s1, s2):
-    assert s1 == s2, s1.difference(s2)
+    assert s1 == s2, "s1 diff s2: %s, s2 diff s1 %s" %(s1.difference(s2), s2.difference(s1))
 
 def read_non_int_rows(filepath: str):
     rows = []
