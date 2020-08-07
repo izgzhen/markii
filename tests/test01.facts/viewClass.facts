@@ -1,8 +1,8 @@
-com.google.android.material.appbar.AppBarLayout	1994673985
-androidx.appcompat.widget.Toolbar	301419543
-androidx.constraintlayout.widget.ConstraintLayout	-1703431317
-android.widget.TextView	-1353089527
-android.widget.ImageView	-871683273
-android.widget.Button	-810508381
-android.widget.LinearLayout	-1677598618
-android.widget.TextView	911323941
+com.google.android.material.appbar.AppBarLayout	603659893
+androidx.appcompat.widget.Toolbar	-967046433
+androidx.constraintlayout.widget.ConstraintLayout	2110400079
+android.widget.TextView	1132439943
+android.widget.ImageView	1785574242
+android.widget.Button	-129328377
+android.widget.LinearLayout	-1825326928
+android.widget.TextView	-2050790701

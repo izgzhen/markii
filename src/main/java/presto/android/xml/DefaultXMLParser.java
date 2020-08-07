@@ -979,7 +979,7 @@ class DefaultXMLParser extends AbstractXMLParser {
       //Retrieve callback (android:onClick)
       String callback = readAndroidCallback(attrMap, "onClick");
       if (callback != null) {
-        view.setInlineClickHandler(callback);
+        view.setInlineClickHandler(callback, file);
       }
       Map<AndroidView.ViewAttr, String> viewAttrVals = Maps.newHashMap();
       for (AndroidView.ViewAttr attr : AndroidView.ViewAttr.values()) {

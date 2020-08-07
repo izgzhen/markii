@@ -32,4 +32,15 @@ if __name__ == "__main__":
         f2 = os.path.join(facts_dir_2, filename)
         rows_1 = sorted(read_non_int_rows(f1))
         rows_2 = sorted(read_non_int_rows(f2))
-        assert rows_1 == rows_2, "Different %s (without int values):\n%s" % (filename, "\n".join(difflib.unified_diff(rows_1, rows_2)))
+        if 'methodLineNumber' in filename:
+            assert len(rows_1)==len(rows_2)
+            for i in range(len(rows_1)):
+                r_1 = rows_1[i].split('\t')
+                r_2 = rows_2[i].split('\t')
+                for j in range(len(r_1)):
+                    if 'res//' in r_1[j]:
+                        r_1[j] = r_1[j][r_1[j].find('res//') + 5:]
+                        r_2[j] = r_2[j][r_2[j].find('res//') + 5:]
+                    assert r_1[j] == r_2[j], "Different %s (without int values):\n%s" % (filename, "\n".join(difflib.unified_diff(rows_1, rows_2)))
+        else:
+            assert rows_1 == rows_2, "Different %s (without int values):\n%s" % (filename, "\n".join(difflib.unified_diff(rows_1, rows_2)))
