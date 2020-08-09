@@ -5,7 +5,7 @@
 package com.research.nomad.markii.dataflow
 
 import presto.android.gui.listener.EventType
-import presto.android.xml.AndroidView
+import presto.android.xml.{AndroidView, MethodInfo}
 import soot.SootClass
 import soot.jimple.Stmt
 
@@ -74,7 +74,7 @@ object AbsNode {
       List()
     }
 
-    def getInlineClickHandlers: Iterable[(EventType, String)] = if (androidView != null) {
+    def getInlineClickHandlers: Iterable[(EventType, MethodInfo)] = if (androidView != null) {
       androidView.getInlineClickHandlers.asScala
     } else {
       List()

@@ -47,6 +47,7 @@ object FactsWriter {
       showDialog, // TODO: it needs to replace activityHandlerAllocDialog
       dismiss,
       intentFilter,
+      methodLineNumber,
 
       startActivity,
       startViewActivityOfSomeHosts,

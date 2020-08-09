@@ -5,3 +5,7 @@ __pycache__
 .gradle
 .idea
 local.properties
+.DS_Store
+
+tests/test02/.gradle
+tests/test02/.idea

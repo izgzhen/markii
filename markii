@@ -118,7 +118,8 @@ def analyze(args, unknown):
         with open(args.logpath, 'w') as outfile:
             assert call(cmd, timeout=int(args.timeout), stdout=outfile, stderr=outfile) == 0
             print('...... log saved to %s' % outfile.name)
-    remove_temp_dirs()
+    if (args.remove_temp == 'T'):
+        remove_temp_dirs()
 
 
 def build(args, unknown):
@@ -198,6 +199,12 @@ def main():
                                 metavar='APK',
                                 required=True,
                                 help='path to the APK')
+
+    parser_analyze.add_argument('-temp',
+                                dest='remove_temp',
+                                required=False,
+                                default='F',
+                                help='remove temp file (T/F)')
 
     ####################################
     ####################################
