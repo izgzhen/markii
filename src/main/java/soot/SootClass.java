@@ -625,6 +625,22 @@ public class SootClass extends AbstractHost implements Numberable {
     return foundMethod;
   }
 
+  public List<SootMethod> getMethodsByNameUnsafe(String name) {
+    checkLevel(SIGNATURES);
+    ArrayList<SootMethod> foundMethods = new ArrayList<>();
+
+    if (methodList == null) {
+      return null;
+    }
+
+    for (SootMethod method : methodList) {
+      if (method.getName().equals(name)) {
+        foundMethods.add(method);
+      }
+    }
+    return foundMethods;
+  }
+
   /**
    * Attempts to retrieve the method with the given name. This method may throw an AmbiguousMethodException if there are more
    * than one method with the given name. If no method with the given is found, an exception is thrown as well.

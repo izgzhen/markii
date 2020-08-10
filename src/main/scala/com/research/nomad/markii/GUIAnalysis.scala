@@ -164,11 +164,12 @@ object GUIAnalysis extends IAnalysis {
     }
     for ((eventType, methodName) <- viewNode.getInlineClickHandlers) {
       for (act <- ownerActivities) {
-        val method = act.getMethodByNameUnsafe(methodName)
-        if (method != null) {
-          DynamicCFG.addViewHandlerToEventLoopAct(act, method)
-          writer.writeFact(FactsWriter.Fact.eventHandler, eventType, method, viewNode.nodeID)
-          analyzeAnyHandlerPostVASCO(method)
+        for(method <- act.getMethodsByNameUnsafe(methodName).asScala) {
+          if (method != null) {
+            DynamicCFG.addViewHandlerToEventLoopAct(act, method)
+            writer.writeFact(FactsWriter.Fact.eventHandler, eventType, method, viewNode.nodeID)
+            analyzeAnyHandlerPostVASCO(method)
+          }
         }
       }
     }
