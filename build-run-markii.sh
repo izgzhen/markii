@@ -11,7 +11,9 @@ $DIR/check-jdk-version
 
 APK_PATH=$(realpath $1)
 OUTPUT_PATH=$(realpath $2)
+
 TEMPFILE_REMOVE=$3
+
 if [ ! -z "$API_SEMANTICS_CONFIG" ]; then
     API_SEMANTICS_CONFIG_PATH=$(realpath $API_SEMANTICS_CONFIG)
 fi
@@ -28,15 +30,9 @@ if [ -z "$BATCH_RUN" ]; then
 fi
 
 if [ -z "$API_SEMANTICS_CONFIG" ]; then
-<<<<<<< HEAD
     ./markii a -p $APK_PATH -clientParam output:$OUTPUT_PATH -temp $TEMPFILE_REMOVE
 else
     ./markii a -p $APK_PATH -clientParam output:$OUTPUT_PATH \
         -clientParam apiSemanticConfig:$API_SEMANTICS_CONFIG_PATH -temp $TEMPFILE_REMOVE
-=======
-    ./markii a -p $APK_PATH -clientParam output:$OUTPUT_PATH -temp TEMPFILE_REMOVE
-else
-    ./markii a -p $APK_PATH -clientParam output:$OUTPUT_PATH \
-        -clientParam apiSemanticConfig:$API_SEMANTICS_CONFIG_PATH -temp TEMPFILE_REMOVE
->>>>>>> d04912c738dc1b4c18e500e24acb51cff9309ab0
+
 fi
