@@ -17,7 +17,6 @@ object Util {
   /**
    * getMethod will throw exception sometimes...
    *
-   * FIXME: upgrade Soot
    * @param invokeExpr
    * @return
    */
