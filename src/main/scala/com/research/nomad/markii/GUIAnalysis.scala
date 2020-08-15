@@ -399,8 +399,12 @@ object GUIAnalysis extends IAnalysis {
           }
         }
       } else {
-        // FIXME
-        println("[WARN] Null endpoint: " + handler)
+        println("[WARN] Please submit an issue at https://github.com/izgzhen/markii/issues/new if this handler is missing " + handler + ":")
+        println("[WARN] Title: Miss handler in vascoSolution")
+        println("[WARN] Body:")
+        println(s"[WARN] Handler signature: ${handler.getSignature}")
+        println(s"[WARN] APK path or APK compilation steps: [PLEASE FILL]")
+        println(s"[WARN] Other steps to reproduce this error: [PLEASE FILL]")
       }
     }
 

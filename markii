@@ -106,6 +106,8 @@ def analyze(args, unknown):
         cmd.append('-verbose')
     cmd.extend(unknown)
     cmd.append("-enableStringPropertyAnalysis")
+    if os.getenv("DEBUG_MODE"):
+        cmd.extend(["-clientParam", "debugMode:true"])
     print('...... %s' % ' '.join(cmd))
     if args.debug:  # print out the command
         return
