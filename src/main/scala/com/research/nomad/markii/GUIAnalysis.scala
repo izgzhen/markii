@@ -9,7 +9,7 @@ import java.io.PrintWriter
 import com.research.nomad.markii.analyses.PreVASCO
 import com.research.nomad.markii.dataflow.AbsNode.ViewNode
 import com.research.nomad.markii.dataflow.custom.FromConfig
-import com.research.nomad.markii.dataflow.{AFTDomain, AbsAttr, AbsNode, AbsValSet, AbstractValue, AbstractValuePropIFDS, AbstractValuePropVASCO, CustomStatePropVASCO}
+import com.research.nomad.markii.dataflow.{AFTDomain, AbsAttr, AbsNode, AbsValSet, AbstractValue, AbstractValuePropIFDS, AbstractValuePropVASCO, CustomStatePropVASCO, DialogButtonType}
 import com.research.nomad.markii.instrument.{AllInstrument, DialogCreateInstrument, DialogInitInstrument}
 import heros.InterproceduralCFG
 import heros.solver.IFDSSolver
@@ -203,7 +203,9 @@ object GUIAnalysis extends IAnalysis {
         }
         writer.writeFact(FactsWriter.Fact.viewClass, c.getName, viewNode.nodeID)
         if (AppInfo.hier.isSubclassOf(c, Constants.buttonViewClass)) writer.writeFact(FactsWriter.Fact.buttonView, viewNode.nodeID)
-        if (Constants.isDialogClass(c)) writer.writeFact(FactsWriter.Fact.dialogView, viewNode.nodeID, icfg.getMethodOf(viewNode.allocSite))
+        if (Constants.isDialogClass(c)) {
+          writer.writeFact(FactsWriter.Fact.dialogView, viewNode.nodeID, icfg.getMethodOf(viewNode.allocSite))
+        }
       case None =>
     }
   }
@@ -460,8 +462,12 @@ object GUIAnalysis extends IAnalysis {
                     for (dialogNode <- aftDomain.getViewNodes(reached, stmt, dialogBase)) {
                       writer.writeFact(FactsWriter.Fact.dialogView, dialogNode.nodeID, icfg.getMethodOf(dialogNode.allocSite))
                       writer.writeFact(FactsWriter.Fact.showDialog, handler, reached, dialogNode.nodeID)
-                      for (handler <- aftDomain.getDialogButtonHandlers(dialogNode)) {
-                        writer.writeFact(FactsWriter.Fact.alertDialogFixedButtonHandler, handler, dialogNode.nodeID)
+                      // Write fact about dialog's YES/NO buttons' handlers
+                      for (buttonType <- DialogButtonType.values) {
+                        for (childNode <- aftDomain.findViewByButtonType(dialogNode, buttonType)) {
+                          writer.writeFact(FactsWriter.Fact.dialogViewButton, dialogNode.nodeID,
+                            childNode.nodeID, buttonType.toString)
+                        }
                       }
                     }
                   }

@@ -33,15 +33,19 @@ test-invalidrec:
 test-all: test-test01 test-test02 test-validrec test-invalidrec
 
 record-test01: build-test01
+	rm -r tests/test01.facts
 	./build-run-markii.sh $(TEST01_APK) tests/test01.facts
 
 record-test02: build-test02
+	rm -r tests/test02.facts
 	./build-run-markii.sh $(TEST02_APK) tests/test02.facts
 
 record-validrec:
+	rm -r tests/validrec.facts
 	API_SEMANTICS_CONFIG=tests/recorder.yaml ./build-run-markii.sh tests/validrec/app-debug.apk tests/validrec.facts
 
 record-invalidrec:
+	rm -r tests/invalidrec.facts
 	API_SEMANTICS_CONFIG=tests/recorder.yaml ./build-run-markii.sh tests/invalidrec/app-debug.apk tests/invalidrec.facts
 
 record-all: record-test01 record-test02 record-validrec record-invalidrec

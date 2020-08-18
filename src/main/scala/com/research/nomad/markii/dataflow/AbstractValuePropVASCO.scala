@@ -41,7 +41,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
         val handler = listener.getMethodByNameUnsafe("onClick")
         if (handler != null) {
           val dialogBuilder = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.asInstanceOf[Local]
-          d.setDialogHandler(ctxMethod, stmt, dialogBuilder, handler, Some(buttonType))
+          d.setDialogButtonHandler(ctxMethod, stmt, dialogBuilder, handler, Some(buttonType))
         } else {
           d
         }
@@ -352,8 +352,8 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
               case Some(listener) =>
                 val handler = listener.getMethodByNameUnsafe("onClick")
                 if (handler != null) {
-                  val dialogBuilder = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.asInstanceOf[Local]
-                  return d.setDialogHandler(context.getMethod, stmt, dialogBuilder, handler, None)
+                  val local = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.asInstanceOf[Local]
+                  return d.setDialogButtonHandler(context.getMethod, stmt, local, handler, None)
                 }
               case _ =>
             }
