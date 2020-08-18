@@ -42,7 +42,6 @@ object FactsWriter {
       rootView, mainActivity,
       activityEventHandler,
       eventHandler,
-      alertDialogFixedButtonHandler,
       finishActivity,
       showDialog, // TODO: it needs to replace activityHandlerAllocDialog
       dismiss,
@@ -55,6 +54,7 @@ object FactsWriter {
 
       //----- Value properties and Behaviors -----//
       buttonView, lifecycleMethod, preferenceActivity, dialogView,
+      dialogViewButton,
       setStatus, setConsetInfoUpdateHandler, setNPA, readAudio, loadGoogleConsentForm,
       recordButton, loadWebViewUrl, adViewClass, serviceClass, adViewIdName,
       showSuspiciousAd, showSuspiciousInterstitialAd, invokesReflectiveAPI, serviceClassLastName,

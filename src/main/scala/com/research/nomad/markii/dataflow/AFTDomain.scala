@@ -325,42 +325,70 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
 
   def setHandlers(contextMethod: SootMethod, stmt: Stmt, l: Local,
                   eventType: EventType, handlers: Set[SootMethod]): AFTDomain = {
-    var nodeHandlerMap2 = nodeHandlerMap
+    var d = copy()
     for (viewNode <- getViewNodes(contextMethod, stmt, l)) {
-      nodeHandlerMap2 += ((viewNode, eventType) -> handlers)
+      d = d.setHandlers(viewNode, eventType, handlers)
     }
+    d
+  }
+
+  private def setHandlers(viewNode: ViewNode, eventType: EventType, handlers: Set[SootMethod]): AFTDomain = {
+    var nodeHandlerMap2 = nodeHandlerMap
+    nodeHandlerMap2 += ((viewNode, eventType) -> handlers)
     copy(nodeHandlerMap = nodeHandlerMap2)
   }
 
   /**
-   * @param contextMethod
-   * @param stmt
-   * @param l
-   * @param handler
-   * @param dialogButtonType: If none, means unknown type
+   * Set dialog's POSITIVE/NEGATIVE/NEUTRAL button handler
+   *
+   * @param contextMethod The context of invocation
+   * @param stmt Invocation statement
+   * @param l DialogView local variable
+   * @param handler Handler of button
+   * @param dialogButtonType: If None, means unknown type -- we will set for all possible types
    * @return
    */
-  def setDialogHandler(contextMethod: SootMethod, stmt: Stmt, l: Local,
-                       handler: SootMethod, dialogButtonType: Option[DialogButtonType.Value]): AFTDomain = {
+  def setDialogButtonHandler(contextMethod: SootMethod, stmt: Stmt, l: Local,
+                             handler: SootMethod, dialogButtonType: Option[DialogButtonType.Value]): AFTDomain = {
+    var d = copy()
+    for (dialogViewNode <- getViewNodes(contextMethod, stmt, l)) {
+      d = d.setDialogButtonHandler(dialogViewNode, handler, dialogButtonType)
+    }
+    d
+  }
+
+  private def setDialogButtonHandler(viewNode: ViewNode, handler: SootMethod,
+                                     dialogButtonType: Option[DialogButtonType.Value]): AFTDomain = {
+    var d = copy()
     dialogButtonType match {
       case Some(buttonType) =>
-        var dialogHandlerMap2 = dialogHandlerMap
-        for (viewNode <- getViewNodes(contextMethod, stmt, l)) {
-          dialogHandlerMap2 += ((viewNode, buttonType) -> Set(handler))
-        }
-        copy(dialogHandlerMap = dialogHandlerMap2)
+        d = d.setDialogButtonHandler(viewNode, buttonType, handler)
       case None =>
-        var dialogHandlerMap2 = dialogHandlerMap
-        for (viewNode <- getViewNodes(contextMethod, stmt, l)) {
-          for (buttonType <- DialogButtonType.values) {
-            val handlers = dialogHandlerMap2.get((viewNode, buttonType)) match {
-              case Some(handlers) => handlers + handler
-              case None => Set(handler)
-            }
-            dialogHandlerMap2 += ((viewNode, buttonType) -> handlers)
-          }
+        for (buttonType <- DialogButtonType.values) {
+          d = d.setDialogButtonHandler(viewNode, buttonType, handler)
         }
-        copy(dialogHandlerMap = dialogHandlerMap2)
+    }
+    d
+  }
+
+  /**
+   * @param viewNode FIXME: Currently we use ViewNode to wrap builder as well
+   * @return
+   */
+  private def setDialogButtonHandler(viewNode: ViewNode, buttonType: DialogButtonType.Value,
+                                     handler: SootMethod): AFTDomain = {
+    val viewNodeClass = viewNode.sootClass.get
+    if (Constants.isDialogBuilderClass(viewNodeClass)) {
+      var dialogHandlerMap2 = dialogHandlerMap
+      dialogHandlerMap2 += ((viewNode, buttonType) -> Set(handler))
+      copy(dialogHandlerMap = dialogHandlerMap2)
+    } else {
+      assert(Constants.isDialogClass(viewNodeClass))
+      var d = copy()
+      for (buttonView <- findViewByButtonType(viewNode, buttonType)) {
+        d = d.setHandlers(buttonView, EventType.click, Set(handler))
+      }
+      d
     }
   }
 
@@ -447,7 +475,26 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
   }
 
   def newView(ref: Ref, sootClass: SootClass, stmt: Stmt): AFTDomain = {
-    withNode(ref, ViewNode(stmt, sootClass = Some(sootClass), androidView = null))
+    newView_(ref, sootClass, stmt)._1
+  }
+
+  private def newView_(ref: Ref, sootClass: SootClass, stmt: Stmt): (AFTDomain, ViewNode) = {
+    val node = ViewNode(stmt, sootClass = Some(sootClass), androidView = null)
+    var d = withNode(ref, node)
+    if (Constants.isDialogClass(sootClass)) {
+      // https://developer.android.com/reference/android/content/DialogInterface
+      // TODO: inflate existing built-in template instead?
+      val buttons = List(
+        ViewNode(stmt, buttonType = Some(DialogButtonType.POSITIVE)),
+        ViewNode(stmt, buttonType = Some(DialogButtonType.NEGATIVE)),
+        ViewNode(stmt, buttonType = Some(DialogButtonType.NEUTRAL)))
+      for (childNode <- buttons) {
+        d = d.addEdge(node, childNode)
+      }
+      (d, node)
+    } else {
+      (d, node)
+    }
   }
 
   def newUnifiedObject(ref: Ref, sootClass: SootClass, stmt: Stmt): AFTDomain = {
@@ -458,16 +505,16 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
     withNode(ref, LayoutParamsNode())
   }
 
+
   def dialogCreate(ref: Ref, sootClass: SootClass, stmt: Stmt, builderLocal: Local, contextMethod: SootMethod): AFTDomain = {
-    val dialogViewNode = ViewNode(stmt, sootClass = Some(sootClass), androidView = null)
-    var d = withNode(ref, dialogViewNode)
+    var (d, dialogViewNode) = newView_(ref, sootClass, stmt)
+    // Propagate button handler information from builder node to the view node
     for (builderNode <- getViewNodes(contextMethod, stmt, builderLocal)) {
       for (((node, buttonType), handlers) <- dialogHandlerMap) {
         if (node == builderNode) {
-          val newHandlers = d.dialogHandlerMap.getOrElse((dialogViewNode, buttonType), Set()) ++ handlers
-          d = d.copy(
-            dialogHandlerMap = d.dialogHandlerMap + ((dialogViewNode, buttonType) -> newHandlers)
-          )
+          for (handler <- handlers) {
+            d = d.setDialogButtonHandler(dialogViewNode, handler, Some(buttonType))
+          }
         }
       }
     }
@@ -489,6 +536,18 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
         edges.flatMap(targetNode => findViewById(targetNode, id))
       case None => Iterable.empty
     }) ++ (if (viewNode.id.contains(id)) {
+      Iterable.single(viewNode)
+    } else {
+      Iterable.empty
+    })
+  }
+
+  def findViewByButtonType(viewNode: ViewNode, buttonType: DialogButtonType.Value): IterableOnce[ViewNode] = {
+    (nodeEdgeMap.get(viewNode) match {
+      case Some(edges) =>
+        edges.flatMap(targetNode => findViewByButtonType(targetNode, buttonType))
+      case None => Iterable.empty
+    }) ++ (if (viewNode.buttonType.contains(buttonType)) {
       Iterable.single(viewNode)
     } else {
       Iterable.empty

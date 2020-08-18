@@ -38,7 +38,8 @@ object AbsNode {
                             id: Set[Int] = Set(),
                             sootClass: Option[SootClass] = None,
                             attributes: Map[AndroidView.ViewAttr, Set[String]] = Map(),
-                            private val androidView: AndroidView) extends AbsNode {
+                            buttonType: Option[DialogButtonType.Value] = None,
+                            private val androidView: AndroidView = null) extends AbsNode {
 
     // FIXME: merge attributes without changing the hash code?
     //        or maybe factoring out the attribute map into another abstract state?
@@ -57,7 +58,19 @@ object AbsNode {
 
     def nodeID: Int = hashCode()
 
-    override def toString: String = f"ViewNode(${nodeID.toString}, id=${id}, class=${sootClass})"
+    override def toString: String = {
+      val attrStrings = mutable.ArrayBuffer[String]()
+      if (id.nonEmpty) {
+        attrStrings.addOne(f"id: [${id.mkString(",")}]")
+      }
+      if (sootClass.nonEmpty) {
+        attrStrings.addOne(f"sootClass: ${sootClass.get}")
+      }
+      if (buttonType.nonEmpty) {
+        attrStrings.addOne(f"buttonType: ${buttonType.get}")
+      }
+      f"ViewNode(${attrStrings.mkString(",")})"
+    }
 
     def getAttrs: Iterable[(AndroidView.ViewAttr, String)] = {
       val defaultAttrs = if (androidView != null) {
