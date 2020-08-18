@@ -19,5 +19,5 @@ initialState: "STOPPED"
 # 
 # Note that there is no constraint over the source state, thus left unspecified.
 transferMap:
-  "<android.media.MediaRecorder: void start()>": "STARTED"
-  "<android.media.MediaRecorder: void stop()>": "STOPPED"
+  "<android.media.MediaRecorder: void start()>": {fromStates: ["STOPPED"], toState: "STARTED"}
+  "<android.media.MediaRecorder: void stop()>": {fromStates: ["STARTED"], toState: "STOPPED"}
