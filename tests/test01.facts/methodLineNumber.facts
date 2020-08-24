@@ -1,7 +1,7 @@
-&lt;com.example.test01.MainActivity$1$2: void onClick(android.content.DialogInterface,int)&gt;	method linked in java	44	com.example.test01.MainActivity$1$2	1571953473
-&lt;com.example.test01.MainActivity$1$2: void onClick(android.content.DialogInterface,int)&gt;	method linked in java	44	com.example.test01.MainActivity$1$2	-305535770
-&lt;com.example.test01.MainActivity$1$2: void onClick(android.content.DialogInterface,int)&gt;	method linked in java	44	com.example.test01.MainActivity$1$2	590592284
-&lt;com.example.test01.MainActivity$1: void onClick(android.view.View)&gt;	method linked in java	32	com.example.test01.MainActivity$1	-1463350883
-&lt;com.example.test01.Main2Activity$2: void onClick(android.content.DialogInterface,int)&gt;	method linked in java	47	com.example.test01.Main2Activity$2	-663057297
-&lt;com.example.test01.Main2Activity$2: void onClick(android.content.DialogInterface,int)&gt;	method linked in java	47	com.example.test01.Main2Activity$2	-1387114839
-&lt;com.example.test01.Main2Activity$2: void onClick(android.content.DialogInterface,int)&gt;	method linked in java	47	com.example.test01.Main2Activity$2	-1932856468
+&lt;com.example.test01.MainActivity$1$2: void onClick(android.content.DialogInterface,int)&gt;	method linked in java	44	com.example.test01.MainActivity$1$2	-1508798712
+&lt;com.example.test01.MainActivity$1$2: void onClick(android.content.DialogInterface,int)&gt;	method linked in java	44	com.example.test01.MainActivity$1$2	212556164
+&lt;com.example.test01.MainActivity$1$2: void onClick(android.content.DialogInterface,int)&gt;	method linked in java	44	com.example.test01.MainActivity$1$2	-1076754176
+&lt;com.example.test01.MainActivity$1: void onClick(android.view.View)&gt;	method linked in java	32	com.example.test01.MainActivity$1	-671960819
+&lt;com.example.test01.Main2Activity$2: void onClick(android.content.DialogInterface,int)&gt;	method linked in java	47	com.example.test01.Main2Activity$2	1003571355
+&lt;com.example.test01.Main2Activity$2: void onClick(android.content.DialogInterface,int)&gt;	method linked in java	47	com.example.test01.Main2Activity$2	179651286
+&lt;com.example.test01.Main2Activity$2: void onClick(android.content.DialogInterface,int)&gt;	method linked in java	47	com.example.test01.Main2Activity$2	354220143
