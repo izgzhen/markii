@@ -106,7 +106,7 @@ case class AccessPath[D <: AbsVal[D]](data: Option[D],
   }
 
   /**
-   * Merge all data in fields
+   * Get all data in sub-fields of this access path
    * @return
    */
   def getAllFieldsData: Option[D] = {
@@ -119,7 +119,7 @@ case class AccessPath[D <: AbsVal[D]](data: Option[D],
     }
   }
   /**
-   * Merge all data in fields
+   * Get all data in current and sub-fields of this access path
    * @return
    */
   def getAllData: Option[D] = {
