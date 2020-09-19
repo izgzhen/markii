@@ -8,7 +8,7 @@ import com.research.nomad.markii.{AppInfo, Constants, PreAnalyses}
 import com.research.nomad.markii.dataflow.AbsNode.{ActNode, LayoutParamsNode, ListenerNode, UnifiedObjectNode, ViewNode}
 import presto.android.gui.listener.EventType
 import presto.android.xml.AndroidView
-import soot.jimple.{AssignStmt, InstanceInvokeExpr, IntConstant, Stmt}
+import soot.jimple.{InstanceInvokeExpr, IntConstant, Stmt}
 import soot.{Local, SootClass, SootMethod, Value}
 
 import scala.collection.mutable
@@ -59,11 +59,18 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
 
   /**
    * STRUCTURAL METHOD
+   * NOTE: If you are trying to mutate view nodes (e.g. its attributes), use updateLocalViewNodes instead.
+   *
+   * nodeToNode: Mutator which process any node that is not view node.
    */
-  def updateNodes(contextMethod: SootMethod, stmt: Stmt, local: Local, nodeToNode: AbsNode => AbsNode): AFTDomain = {
+  private def updateLocalNonViewNodes(contextMethod: SootMethod, stmt: Stmt, local: Local,
+                                      nodeToNode: AbsNode => AbsNode): AFTDomain = {
     copy(localNodeMap = localNodeMap.map { case (l, accessPath) =>
       if (PreAnalyses.isAlias(local, l, stmt, stmt, contextMethod)) {
-        (l, accessPath.updateData((x, _) => x.map(nodeToNode), None))
+        (l, accessPath.updateData((x, _) => x.map {
+          case viewNode: ViewNode => viewNode
+          case nonViewNode => nodeToNode(nonViewNode)
+        }, None))
       } else {
         (l, accessPath)
       }
@@ -73,7 +80,32 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
   /**
    * STRUCTURAL METHOD
    */
-  def mapViewNodes(nodeToNode: ViewNode => ViewNode): AFTDomain = {
+  private def updateLocalViewNodes(contextMethod: SootMethod, stmt: Stmt, local: Local,
+                                   nodeToNode: ViewNode => ViewNode): AFTDomain = {
+    val selectedViewNodeIDs = mutable.Set[Integer]()
+    localNodeMap.foreach { case (l, accessPath) =>
+      if (PreAnalyses.isAlias(local, l, stmt, stmt, contextMethod)) {
+        if (accessPath.data.nonEmpty) {
+          for (absNode <- accessPath.data.get.vals) {
+            absNode match {
+              case viewNode: ViewNode => selectedViewNodeIDs.add(viewNode.nodeID)
+              case _ =>
+            }
+          }
+        }
+      }
+    }
+    updateAllViewNodes(viewNode => if (selectedViewNodeIDs.contains(viewNode.nodeID)) {
+      nodeToNode(viewNode)
+    } else {
+      viewNode
+    })
+  }
+
+  /**
+   * STRUCTURAL METHOD
+   */
+  private def updateAllViewNodes(nodeToNode: ViewNode => ViewNode): AFTDomain = {
     AFTDomain(
       localNodeMap = localNodeMap.view.mapValues(_.updateData((x, _) => x.map {
         case v: ViewNode => nodeToNode(v)
@@ -252,7 +284,7 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
 
   def updateUnifiedObjectNodes(ctxMethod: SootMethod, stmt: Stmt, instanceInvokeExpr: InstanceInvokeExpr): AFTDomain = {
     val baseLocal = instanceInvokeExpr.getBase.asInstanceOf[Local]
-    updateNodes(ctxMethod, stmt, baseLocal, {
+    updateLocalNonViewNodes(ctxMethod, stmt, baseLocal, {
       case n@UnifiedObjectNode(absName, attrs) =>
         UnifiedObjectAPI.invokeFrom(absName, attrs, instanceInvokeExpr) match {
           case Some(newAttrs) => UnifiedObjectNode(absName, newAttrs)
@@ -290,7 +322,7 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
 
   def setId(ctxMethod: SootMethod, dialogLocal: Local, stmt: Stmt, newId: Int): AFTDomain = {
     val nodes = getViewNodes(ctxMethod, stmt, dialogLocal).toSet
-    mapViewNodes(viewNode => {
+    updateAllViewNodes(viewNode => {
       if (nodes.contains(viewNode)) {
         viewNode.copy(id = viewNode.id + newId)
       } else {
@@ -397,11 +429,7 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
     for (node <- getNodes(ctxMethod, stmt, paramsLocal)) {
       node match {
         case LayoutParamsNode(attrs) =>
-          d = d.updateNodes(ctxMethod, stmt, viewLocal, {
-            case viewNode: ViewNode =>
-              viewNode.setAttributes(attrs)
-            case n => n
-          })
+          d = d.updateLocalViewNodes(ctxMethod, stmt, viewLocal, viewNode => viewNode.setAttributes(attrs))
         case _ =>
       }
     }
@@ -414,7 +442,7 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
         (attr, Constants.layoutParamIntToString(intConstant.value))
     }
     if (newAttrs.nonEmpty) {
-      updateNodes(ctxMethod, stmt, paramsBase, {
+      updateLocalNonViewNodes(ctxMethod, stmt, paramsBase, {
         case LayoutParamsNode(attrs) => LayoutParamsNode(attrs ++ newAttrs)
         case n => n
       })

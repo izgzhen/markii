@@ -43,7 +43,7 @@ object AbsNode {
 
     // FIXME: merge attributes without changing the hash code?
     //        or maybe factoring out the attribute map into another abstract state?
-    def setAttributes(attrs: Set[(AndroidView.ViewAttr, String)]): AbsNode = {
+    def setAttributes(attrs: Set[(AndroidView.ViewAttr, String)]): ViewNode = {
       val newAttrs = mutable.Map[AndroidView.ViewAttr, Set[String]]()
       for ((attr, value) <- attrs) {
         newAttrs.put(attr, newAttrs.getOrElse(attr, Set()) + value)
