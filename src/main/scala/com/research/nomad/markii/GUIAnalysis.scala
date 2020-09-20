@@ -167,6 +167,10 @@ object GUIAnalysis extends IAnalysis {
             if (value.toLowerCase().contains("continue")) {
               writer.writeFact(FactsWriter.Fact.actionButton, viewNode.nodeID)
             }
+          case AndroidView.ViewAttr.dialogTitle =>
+            writer.writeDimensionFact(FactsWriter.Fact.dialogTitle, value, viewNode.nodeID)
+          case AndroidView.ViewAttr.dialogMessage =>
+            writer.writeDimensionFact(FactsWriter.Fact.dialogMessage, value, viewNode.nodeID)
           case AndroidView.ViewAttr.contentDescription => hasContentDescription = true
           case _ =>
         }

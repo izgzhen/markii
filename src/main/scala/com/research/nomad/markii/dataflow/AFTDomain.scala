@@ -8,7 +8,7 @@ import com.research.nomad.markii.{AppInfo, Constants, PreAnalyses}
 import com.research.nomad.markii.dataflow.AbsNode.{ActNode, LayoutParamsNode, ListenerNode, UnifiedObjectNode, ViewNode}
 import presto.android.gui.listener.EventType
 import presto.android.xml.AndroidView
-import soot.jimple.{InstanceInvokeExpr, IntConstant, Stmt}
+import soot.jimple.{InstanceInvokeExpr, IntConstant, Stmt, StringConstant}
 import soot.{Local, SootClass, SootMethod, Value}
 
 import scala.collection.mutable
@@ -423,6 +423,34 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
       d
     }
   }
+  def setDialogTitle(ctxMethod: SootMethod, stmt: Stmt, viewLocal: Local, param: Value): AFTDomain = {
+    var d = copy()
+    d = d.updateLocalViewNodes(ctxMethod, stmt, viewLocal,{
+      case viewNode: ViewNode =>
+        val newAttr = Set((AndroidView.ViewAttr.dialogTitle, param)).collect {
+          case (attr, stringConstant: StringConstant) =>
+            (attr, stringConstant.value)
+        }
+        viewNode.setAttributes(newAttr)
+      case n => n
+    })
+    d
+  }
+
+  def setDialogMessage(ctxMethod: SootMethod, stmt: Stmt, viewLocal: Local, param: Value): AFTDomain = {
+    var d = copy()
+    d = d.updateLocalViewNodes(ctxMethod, stmt, viewLocal,{
+      case viewNode: ViewNode =>
+        val newAttr = Set((AndroidView.ViewAttr.dialogMessage, param)).collect {
+          case (attr, stringConstant: StringConstant) =>
+            (attr, stringConstant.value)
+        }
+        viewNode.setAttributes(newAttr)
+      case n => n
+    })
+    d
+  }
+
 
   def setLayoutParams(ctxMethod: SootMethod, stmt: Stmt, viewLocal: Local, paramsLocal: Local): AFTDomain = {
     var d = copy()

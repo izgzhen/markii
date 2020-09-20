@@ -379,6 +379,20 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
             }
             println("Unhandled: " + invokeExpr.getMethod.getSignature)
           }
+          if (invokeExpr.getMethod.getName == "setTitle") {
+            if(Constants.isDialogSetTitle(invokeExpr.getMethod.getSignature)) {
+              val viewBase = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.asInstanceOf[Local]
+              val param = invokeExpr.getArg(0)
+              return d.setDialogTitle(context.getMethod, stmt, viewBase, param)
+            }
+          }
+          if (invokeExpr.getMethod.getName == "setMessage") {
+            if(Constants.isDialogSetMessage(invokeExpr.getMethod.getSignature)) {
+              val viewBase = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.asInstanceOf[Local]
+              val param = invokeExpr.getArg(0)
+              return d.setDialogMessage(context.getMethod, stmt, viewBase, param)
+            }
+          }
           // FIXME: improve precision, handle View argument
           // FIMXE: sub-class won't get the correct predicat here
           if (Constants.isActivitySetContentViewWithInt(invokeExpr.getMethod)) {
