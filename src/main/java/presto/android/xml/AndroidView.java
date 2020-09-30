@@ -27,7 +27,9 @@ public class AndroidView implements IAndroidView {
     layout_width,
     background,
     textSize,
-    contentDescription
+    contentDescription,
+    dialogTitle,
+    dialogMessage
   }
 
   public enum ViewAppAttr {

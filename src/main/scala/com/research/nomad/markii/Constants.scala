@@ -92,6 +92,12 @@ object Constants {
       None
     }
 
+  def isDialogSetTitle(sig: String): Boolean =
+    dialogClassNames.exists(x => sig.startsWith("<" + x + ": void setTitle("))
+
+  def isDialogSetMessage(sig: String): Boolean =
+    dialogClassNames.exists(x => sig.startsWith("<" + x + ": void setMessage(" ))
+
   def isDialogBuilderSetAny(subSig: String): Boolean =
     dialogClassNames.exists(x => subSig.startsWith(x + "$Builder set"))
 
