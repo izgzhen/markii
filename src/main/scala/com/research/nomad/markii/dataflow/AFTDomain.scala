@@ -452,6 +452,13 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
   }
 
 
+  /**
+    * ctxMethod {
+    *   ...
+    *   stmt: viewLocal.setLayoutParams(paramsLocal)
+    *   ...
+    * }
+    */
   def setLayoutParams(ctxMethod: SootMethod, stmt: Stmt, viewLocal: Local, paramsLocal: Local): AFTDomain = {
     var d = copy()
     for (node <- getNodes(ctxMethod, stmt, paramsLocal)) {
@@ -464,6 +471,13 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
     d
   }
 
+  /**
+    * ctxMethod {
+    *   ...
+    *   stmt: paramsBase.__init__(height, width)
+    *   ...
+    * }
+    */
   def initLayoutParams(ctxMethod: SootMethod, stmt: Stmt, paramsBase: Local, width: Value, height: Value): AFTDomain = {
     val newAttrs = List((width, AndroidView.ViewAttr.layout_width), (height, AndroidView.ViewAttr.layout_height)).collect {
       case (intConstant: IntConstant, attr) =>
