@@ -211,4 +211,14 @@ object Constants {
   }
 
   val runnerMethodName = "run_markii_generated"
+
+  def getLifecycleMethodWindow(m: SootMethod): Option[SootClass] = {
+    val cls = m.getDeclaringClass
+    // FIXME: use a more precise heuristic
+    if ((isActivity(cls) || isDialogClass(cls)) && m.getName.startsWith("on")) {
+      Some(cls)
+    } else {
+      None
+    }
+  }
 }

@@ -135,7 +135,7 @@ object GUIAnalysis extends IAnalysis {
         return tmp
       }
     }
-    return -1
+    -1
   }
 
   private def analyzeViewNode(viewNode: ViewNode, ownerActivities: Set[SootClass]): Unit = {
@@ -178,17 +178,14 @@ object GUIAnalysis extends IAnalysis {
     }
     for ((eventType, methodInfo) <- viewNode.getInlineClickHandlers) {
       for (act <- ownerActivities) {
-        val method = act.getMethodByNameUnsafe(methodInfo.getName);
+        val method = act.getMethodByNameUnsafe(methodInfo.getName)
         if (method != null) {
-          DynamicCFG.addViewHandlerToEventLoopAct(act, method)
-          writer.writeFact(FactsWriter.Fact.eventHandler, eventType, method, viewNode.nodeID)
           writer.writeFact(FactsWriter.Fact.methodLineNumber,
-                                                          eventType,
-                                                          methodInfo.getFile,
-                                                          getJavaLineNumber(method),
-                                                          method.getDeclaringClass,
-                                                          viewNode.nodeID)
-          analyzeAnyHandlerPostVASCO(method)
+                           eventType,
+                           methodInfo.getFile,
+                           getJavaLineNumber(method),
+                           method.getDeclaringClass,
+                           viewNode.nodeID)
         }
       }
     }
