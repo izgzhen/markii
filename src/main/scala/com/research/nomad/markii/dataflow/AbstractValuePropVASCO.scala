@@ -330,7 +330,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
    * NOTE: this is separated from AFTDomain.setContentViewAct since it accesses the AndroidView -- which we need to
    * access the bind handlers including the sub-view during construction
    */
-  def setContentViewAct(context: DomainContext, d: AFTDomain, stmt: Stmt, actClass: SootClass, id: Int): AFTDomain = {
+  def setContentViewAct(d: AFTDomain, stmt: Stmt, actClass: SootClass, id: Int): AFTDomain = {
     val view = AppInfo.findViewById(id)
     val viewNode = ViewNode(stmt, id = Set(id, view.getId.toInt), androidView = view)
     d.inflateAFT(stmt, viewNode, view, optTraverser = Some(new InflateTraverser(Some(actClass)))).copy(
@@ -409,7 +409,9 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
     //  instance for all em'
     DynamicCFG.addViewHandlerToEventLoopAct(windowClass, handler) match {
       case Some((runner, invocation)) =>
+        // Step 1: During data-flow analysis, if you changed any method's body, you have to refresh its CFG cache
         aftProgramRepresentation.refreshCFGcache(runner)
+        // Step 2: Reinitialize context to trigger re-analysis
         for (runnerContext <- getContexts(runner).asScala) {
           runnerContext.setValueBefore(invocation, topValue())
           runnerContext.setValueAfter(invocation, topValue())
@@ -440,6 +442,16 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
           val setButtionType = Constants.fromDialogBuilderSetButton(subSig)
           if (setButtionType.nonEmpty) {
             return setDialogButtonListener(setButtionType.get, invokeExpr, d, context.getMethod, stmt)
+          }
+          if (Constants.isDialogFragmentShow(invokeExpr.getMethod.getSignature)) {
+            val base = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase
+            val fragmentClass = base.getType.asInstanceOf[RefType].getSootClass
+            val m = fragmentClass.getMethod(subSig)
+            // get runner (create new dialog fragment runner)
+            // rewrite invocation from show to dialog fragment runner (update call-graph)
+            withXXXRuner(runner => {
+              ...
+            })
           }
           if (Constants.isDialogSetButton(invokeExpr.getMethod.getSignature)) {
             invokeExpr.getArgs.asScala.map(_.getType).collectFirst {
@@ -491,6 +503,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
           }
           // FIXME: improve precision, handle View argument
           // FIMXE: sub-class won't get the correct predicat here
+          // onCreate { .... this.setContentView(...); }
           if (Constants.isActivitySetContentViewWithInt(invokeExpr.getMethod)) {
             invokeExpr.getArg(0) match {
               case intConstant: IntConstant => return setContentView(context, d, invokeExpr, stmt, Left(intConstant.value))
@@ -542,7 +555,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
       node match {
         case ActNode(sootClass) =>
           viewArg match {
-            case Left(id) => output = setContentViewAct(context, output, stmt, sootClass, id)
+            case Left(id) => output = setContentViewAct(output, stmt, sootClass, id)
             case Right(viewLocal) => output = output.setContentViewAct(context.getMethod, stmt, sootClass, viewLocal)
           }
         case _ => // TODO: WebView etc.

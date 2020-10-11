@@ -30,6 +30,10 @@ public class MainActivity extends AppCompatActivity {
 
     public void fire(View view){
         FireMissilesDialogFragment diag = new FireMissilesDialogFragment();
+        // instance -> diag
+        // diag.show
         diag.show(getSupportFragmentManager(), "missiles");
+        // diag: FireMissilesDialogFragment
+        // diag: DialogFragment
     }
 }
