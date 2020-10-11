@@ -128,16 +128,6 @@ object GUIAnalysis extends IAnalysis {
     printWriter.close()
   }
 
-  private def getJavaLineNumber(sootMethod : SootMethod) : Int = {
-    for (unit <- sootMethod.getActiveBody.getUnits.asScala) {
-      val tmp = unit.getJavaSourceStartLineNumber
-      if (tmp != -1){
-        return tmp
-      }
-    }
-    return -1
-  }
-
   private def analyzeViewNode(viewNode: ViewNode, ownerActivities: Set[SootClass]): Unit = {
     viewNode.id.foreach(id => {
       AppInfo.getIdName(id) match {
@@ -173,22 +163,6 @@ object GUIAnalysis extends IAnalysis {
             writer.writeDimensionFact(FactsWriter.Fact.dialogMessage, value, viewNode.nodeID)
           case AndroidView.ViewAttr.contentDescription => hasContentDescription = true
           case _ =>
-        }
-      }
-    }
-    for ((eventType, methodInfo) <- viewNode.getInlineClickHandlers) {
-      for (act <- ownerActivities) {
-        val method = act.getMethodByNameUnsafe(methodInfo.getName);
-        if (method != null) {
-          DynamicCFG.addViewHandlerToEventLoopAct(act, method)
-          writer.writeFact(FactsWriter.Fact.eventHandler, eventType, method, viewNode.nodeID)
-          writer.writeFact(FactsWriter.Fact.methodLineNumber,
-                                                          eventType,
-                                                          methodInfo.getFile,
-                                                          getJavaLineNumber(method),
-                                                          method.getDeclaringClass,
-                                                          viewNode.nodeID)
-          analyzeAnyHandlerPostVASCO(method)
         }
       }
     }
@@ -388,14 +362,14 @@ object GUIAnalysis extends IAnalysis {
       val aftDomain = vascoSolution.getValueAfter(endpoint)
       if (aftDomain != null) {
         for (((viewNode, eventType), eventHandlers) <- aftDomain.nodeHandlerMap) {
-          for (eventHandler <- eventHandlers) {
+          for ((eventHandler, sourceLoc) <- eventHandlers) {
             writer.writeFact(FactsWriter.Fact.eventHandler, eventType, eventHandler, viewNode.nodeID)
             writer.writeFact(FactsWriter.Fact.methodLineNumber,
-                                                      eventHandler,
-                                                      "method linked in java",
-                                                      getJavaLineNumber(eventHandler),
-                                                      eventHandler.getDeclaringClass,
-                                                      viewNode.nodeID);
+              eventHandler,
+              sourceLoc.file,
+              sourceLoc.lineNumber,
+              eventHandler.getDeclaringClass,
+              viewNode.nodeID)
             analyzeAnyHandlerPostVASCO(eventHandler)
           }
         }

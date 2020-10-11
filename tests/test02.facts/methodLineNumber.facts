@@ -1,2 +1,2 @@
-click	/var/folders/5m/1vl49g8j5fq09m__0sy5js_c0000gn/T/gator-5g41yskb/res//layout/activity_main.xml	23	com.example.my_first_app.MainActivity	939817251
-click	/var/folders/5m/1vl49g8j5fq09m__0sy5js_c0000gn/T/gator-5g41yskb/res//layout/activity_main.xml	32	com.example.my_first_app.MainActivity	-1165972266
+&lt;com.example.my_first_app.MainActivity: void sendMessage(android.view.View)&gt;	/var/folders/kk/ggyv8rdd7_z75mbyp8t6jkxc0000gn/T/gator-qz2auw8v/res//layout/activity_main.xml	23	com.example.my_first_app.MainActivity	2017687597
+&lt;com.example.my_first_app.MainActivity: void fire(android.view.View)&gt;	/var/folders/kk/ggyv8rdd7_z75mbyp8t6jkxc0000gn/T/gator-qz2auw8v/res//layout/activity_main.xml	32	com.example.my_first_app.MainActivity	-173944289

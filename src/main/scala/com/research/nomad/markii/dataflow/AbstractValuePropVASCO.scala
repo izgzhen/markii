@@ -6,6 +6,7 @@ package com.research.nomad.markii.dataflow
 
 import java.time.Instant
 
+import com.research.nomad.markii.Util.getJavaLineNumber
 import com.research.nomad.markii.analyses.PreVASCO
 import com.research.nomad.markii.dataflow.AbsNode.{ActNode, ListenerNode, ViewNode}
 import com.research.nomad.markii.{AppInfo, Constants, DynamicCFG, GUIAnalysis, Util}
@@ -16,7 +17,7 @@ import scala.jdk.CollectionConverters._
 import soot.jimple.internal.{JIdentityStmt, JimpleLocal}
 import soot.jimple.{AssignStmt, CastExpr, InstanceFieldRef, InstanceInvokeExpr, IntConstant, InvokeExpr, NewExpr, ReturnStmt, StaticFieldRef, Stmt, ThisRef}
 import soot.{Local, RefType, Scene, SootClass, SootMethod, Value}
-import vasco.{VascoContext, ForwardInterProceduralAnalysis, ProgramRepresentation}
+import vasco.{ForwardInterProceduralAnalysis, ProgramRepresentation, VascoContext}
 
 import scala.collection.mutable
 
@@ -49,12 +50,13 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
     }
   }
 
-  def assigned(ctxMethod: SootMethod, assignStmt: Stmt, ref: Ref,
+  def assigned(context: DomainContext, assignStmt: Stmt, ref: Ref,
                value: Value, ctx: Domain, input: Domain): Domain = {
     val killed = input.killRef(ref)
+    val ctxMethod = context.getMethod
     value match {
       case castExpr: CastExpr =>
-        assigned(ctxMethod, assignStmt, ref, castExpr.getOp, ctx, input)
+        assigned(context, assignStmt, ref, castExpr.getOp, ctx, input)
       case newExpr: NewExpr =>
         val sootClass = newExpr.getBaseType.getSootClass
         if (AppInfo.hier.isSubclassOf(sootClass, Scene.v().getSootClass(Constants.androidViewClassName))) {
@@ -148,7 +150,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
               invokeExpr.getArg(1) match {
                 case parentView: Local =>
                   val attachToRoot = invokeExpr.getArg(2).asInstanceOf[IntConstant].value != 0
-                  killed.inflate(ctxMethod, assignStmt, intConstant.value, ref, parentView, attachToRoot)
+                  inflate(killed, context, assignStmt, intConstant.value, ref, parentView, attachToRoot)
                 case _ => killed
               }
             case _ => killed
@@ -157,7 +159,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
                    UnifiedObjectAPI.isBaseClass(invokeExpr.getMethod.getDeclaringClass)) {
           // TODO: rewrite this whole thing with CustomState, use alias and analyze semantics
           val base = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase
-          assigned(ctxMethod, assignStmt, ref, base, ctx, input)
+          assigned(context, assignStmt, ref, base, ctx, input)
         } else {
           killed
         }
@@ -209,7 +211,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
     unit match {
       case assignStmt: AssignStmt =>
         val ref = Ref.from(assignStmt.getLeftOp)
-        return assigned(context.getMethod, assignStmt, ref, assignStmt.getRightOp, d, d)
+        return assigned(context, assignStmt, ref, assignStmt.getRightOp, d, d)
       case stmt: JIdentityStmt =>
         val methodName = context.getMethod.getName
         val methodClass = context.getMethod.getDeclaringClass
@@ -220,7 +222,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
           return killed.newAct(localRef, methodClass)
         }
       case retStmt: ReturnStmt =>
-        return assigned(context.getMethod, retStmt, Ref.LocalRef(RETURN_LOCAL), retStmt.getOp, d, d)
+        return assigned(context, retStmt, Ref.LocalRef(RETURN_LOCAL), retStmt.getOp, d, d)
       case _ =>
     }
     d
@@ -236,13 +238,18 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
     } else {
       d.getHeap
     }
+    // Set the current window class in the abstract state before entering into the lifecycle method
+    ret = Constants.getLifecycleMethodWindow(m) match {
+      case Some(cls) => ret.copy(currentWindowClasses = Set(cls))
+      case None => ret
+    }
     if (m.hasActiveBody) {
       for (i <- 0 until invokeExpr.getArgCount) {
-        ret = assigned(context.getMethod, stmt, Ref.LocalRef(m.getActiveBody.getParameterLocal(i)), invokeExpr.getArg(i), d, ret)
+        ret = assigned(context, stmt, Ref.LocalRef(m.getActiveBody.getParameterLocal(i)), invokeExpr.getArg(i), d, ret)
       }
       invokeExpr match {
         case instanceInvokeExpr: InstanceInvokeExpr =>
-          ret = assigned(context.getMethod, stmt, Ref.LocalRef(m.getActiveBody.getThisLocal), instanceInvokeExpr.getBase, d, ret)
+          ret = assigned(context, stmt, Ref.LocalRef(m.getActiveBody.getThisLocal), instanceInvokeExpr.getBase, d, ret)
         case _ =>
       }
     }
@@ -254,7 +261,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
     var ret = d.getHeap
     unit match {
       case assignStmt: AssignStmt =>
-        ret = assigned(context.getMethod, assignStmt, Ref.LocalRef(assignStmt.getLeftOp.asInstanceOf[Local]), RETURN_LOCAL, d, ret)
+        ret = assigned(context, assignStmt, Ref.LocalRef(assignStmt.getLeftOp.asInstanceOf[Local]), RETURN_LOCAL, d, ret)
       case _ =>
     }
     unit.asInstanceOf[Stmt].getInvokeExpr match {
@@ -262,13 +269,81 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
         val base = instanceInvokeExpr.getBase.asInstanceOf[Local]
         if (instanceInvokeExpr.getMethod.hasActiveBody) {
           val thisLocal = instanceInvokeExpr.getMethod.getActiveBody.getThisLocal
-          ret = assigned(context.getMethod, unit.asInstanceOf[Stmt], Ref.LocalRef(base), thisLocal, d, ret)
+          ret = assigned(context, unit.asInstanceOf[Stmt], Ref.LocalRef(base), thisLocal, d, ret)
         }
       case _ =>
     }
     ret
   }
 
+  /**
+   * Traverse sub-nodes in an inflated abstract view tree
+   */
+  class InflateTraverser(window: Option[SootClass]) extends Traverser {
+    override def withSubNode(d: AFTDomain, viewNode: ViewNode): AFTDomain = {
+      var newDomain = d
+      for ((eventType, methodInfo) <- viewNode.getInlineClickHandlers) {
+        val windowClasses = window match {
+          case Some(act) => List(act)
+          case None => d.currentWindowClasses
+        }
+        for (cls <- windowClasses) {
+          val method = cls.getMethodByNameUnsafe(methodInfo.getName)
+          newDomain = setEventHandler(newDomain, cls, method, eventType, viewNode,
+                                      SourceLoc(methodInfo.getFile, getJavaLineNumber(method)))
+        }
+      }
+      newDomain
+    }
+  }
+
+    /**
+   * Compute the post-state after "inflate" invocation on pre-state (d)
+   *
+   * Reference: https://developer.android.com/reference/android/view/LayoutInflater#inflate(int,%20android.view.ViewGroup)
+   */
+  private def inflate(d: AFTDomain, context: DomainContext, stmt: Stmt, id: Int,
+                      ref: Ref, parentView: Local, attachToRoot: Boolean): AFTDomain = {
+    val view = AppInfo.findViewById(id)
+    val viewNode = ViewNode(stmt, id = Set(id), androidView = view)
+    val traverser = new InflateTraverser(None)
+    // Set XML-declared handlers for each sub-node of the inflated view tree in the abstract state
+    val newDomain = traverser.withSubNode(d, viewNode).inflateAFT(stmt, viewNode, view, Some(traverser)).withNode(ref, viewNode)
+    if (attachToRoot) {
+      newDomain.withEdge(context.getMethod, stmt, parentView, viewNode)
+    } else {
+      newDomain
+    }
+  }
+
+  /**
+   * NOTE: this is separated from AFTDomain.setContentViewDialog since it accesses the AndroidView -- which we need to
+   * access the bind handlers including the sub-view during construction
+   */
+  def setContentViewDialog(d: AFTDomain, ctxMethod: SootMethod, stmt: Stmt, dialogLocal: Local, id: Int): AFTDomain = {
+    val androidView = AppInfo.findViewById(id)
+    val viewNode = ViewNode(stmt, id = Set(id, androidView.getId.toInt), androidView = androidView)
+    d.inflateAFT(stmt, viewNode, androidView, optTraverser = Some(new InflateTraverser(None))).withEdge(ctxMethod, stmt, dialogLocal, viewNode)
+  }
+
+  /**
+   * NOTE: this is separated from AFTDomain.setContentViewAct since it accesses the AndroidView -- which we need to
+   * access the bind handlers including the sub-view during construction
+   */
+  def setContentViewAct(context: DomainContext, d: AFTDomain, stmt: Stmt, actClass: SootClass, id: Int): AFTDomain = {
+    val view = AppInfo.findViewById(id)
+    val viewNode = ViewNode(stmt, id = Set(id, view.getId.toInt), androidView = view)
+    d.inflateAFT(stmt, viewNode, view, optTraverser = Some(new InflateTraverser(Some(actClass)))).copy(
+      activityRootViewMap = d.activityRootViewMap + (actClass -> Set(viewNode))
+    )
+  }
+
+  /**
+   * Compute the post-state after invocation of API that set event listener (first argument of the invocation)
+   * of a view node (base instance of the invocation).
+   *
+   * Note that the listener is an instance of a class with event handler method(s).
+   */
   def setEventListener(d: AFTDomain, context: DomainContext, invokeExpr: InstanceInvokeExpr,
                        stmt: Stmt, handlerSubSig: String, eventType: EventType): AFTDomain = {
     val viewBase = invokeExpr.getBase.asInstanceOf[Local]
@@ -321,7 +396,28 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
         }
       }
     }
-    d.setHandlers(context.getMethod, stmt, viewBase, eventType, handlers)
+    d.setHandlers(context.getMethod, stmt, viewBase, eventType,
+                  handlers.map(handler => (handler, SourceLoc.fromJavaLinked(handler))))
+  }
+
+  /**
+   * Add handler to the call-graph and abstract state
+   */
+  def setEventHandler(d: AFTDomain, windowClass: SootClass, handler: SootMethod,
+                      eventType: EventType, viewNode: ViewNode, sourceLoc: SourceLoc): AFTDomain = {
+    // FIXME: windowClass vs Activity? Maybe we can unify them?....since the virtual/fake method contains the constructed
+    //  instance for all em'
+    DynamicCFG.addViewHandlerToEventLoopAct(windowClass, handler) match {
+      case Some((runner, invocation)) =>
+        aftProgramRepresentation.refreshCFGcache(runner)
+        for (runnerContext <- getContexts(runner).asScala) {
+          runnerContext.setValueBefore(invocation, topValue())
+          runnerContext.setValueAfter(invocation, topValue())
+        }
+        initContext(runner, topValue())
+      case None =>
+    }
+    d.addHandler(viewNode, eventType, handler, sourceLoc)
   }
 
   override def callLocalFlowFunction(context: DomainContext, unit: soot.Unit, d: Domain): Domain = {
@@ -329,7 +425,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
     unit match {
       case assignStmt: AssignStmt =>
         val ref = Ref.from(assignStmt.getLeftOp)
-        assigned(context.getMethod, assignStmt, ref, assignStmt.getRightOp, d, d)
+        assigned(context, assignStmt, ref, assignStmt.getRightOp, d, d)
       case _ =>
         val stmt = unit.asInstanceOf[Stmt]
         if (stmt.containsInvokeExpr()) {
@@ -397,18 +493,18 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
           // FIMXE: sub-class won't get the correct predicat here
           if (Constants.isActivitySetContentViewWithInt(invokeExpr.getMethod)) {
             invokeExpr.getArg(0) match {
-              case intConstant: IntConstant => return setContentView(d, context.getMethod, invokeExpr, stmt, Left(intConstant.value))
+              case intConstant: IntConstant => return setContentView(context, d, invokeExpr, stmt, Left(intConstant.value))
               case _ =>
             }
           }
           if (Constants.isActivitySetContentViewWithView(invokeExpr.getMethod)) {
-            return setContentView(d, context.getMethod, invokeExpr, stmt, Right(invokeExpr.getArg(0).asInstanceOf[Local]))
+            return setContentView(context, d, invokeExpr, stmt, Right(invokeExpr.getArg(0).asInstanceOf[Local]))
           }
           if (Constants.isDialogSetContentViewWithInt(invokeExpr.getMethod)) {
             val dialogBase = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.asInstanceOf[Local]
             invokeExpr.getArg(0) match {
               case intConstant: IntConstant =>
-                return d.setContentViewDialog(context.getMethod, stmt, dialogBase, intConstant.value)
+                return setContentViewDialog(d, context.getMethod, stmt, dialogBase, intConstant.value)
               case _ =>
             }
           }
@@ -438,16 +534,16 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
     }
   }
 
-  private def setContentView(d: AFTDomain, ctxMethod: SootMethod, invokeExpr: InvokeExpr,
+  private def setContentView(context: DomainContext, d: AFTDomain, invokeExpr: InvokeExpr,
                              stmt: Stmt, viewArg: Either[Int, Local]): AFTDomain = {
-    val nodes = d.getNodes(ctxMethod, stmt, invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.asInstanceOf[Local])
+    val nodes = d.getNodes(context.getMethod, stmt, invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.asInstanceOf[Local])
     var output = d
     for (node <- nodes) {
       node match {
         case ActNode(sootClass) =>
           viewArg match {
-            case Left(id) => output = output.setContentViewAct(stmt, sootClass, id)
-            case Right(viewLocal) => output = output.setContentViewAct(ctxMethod, stmt, sootClass, viewLocal)
+            case Left(id) => output = setContentViewAct(context, output, stmt, sootClass, id)
+            case Right(viewLocal) => output = output.setContentViewAct(context.getMethod, stmt, sootClass, viewLocal)
           }
         case _ => // TODO: WebView etc.
       }

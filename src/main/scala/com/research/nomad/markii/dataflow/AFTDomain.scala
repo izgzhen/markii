@@ -4,6 +4,7 @@
 
 package com.research.nomad.markii.dataflow
 
+import com.research.nomad.markii.Util.getJavaLineNumber
 import com.research.nomad.markii.{AppInfo, Constants, PreAnalyses}
 import com.research.nomad.markii.dataflow.AbsNode.{ActNode, LayoutParamsNode, ListenerNode, UnifiedObjectNode, ViewNode}
 import presto.android.gui.listener.EventType
@@ -27,16 +28,27 @@ case class AbsValSet[D](vals: Set[D] = Set()) extends AbsVal[AbsValSet[D]] {
   def map(f: D => D): AbsValSet[D] = AbsValSet[D](vals.map(f))
 }
 
+trait Traverser {
+  def withSubNode(d: AFTDomain, viewNode: ViewNode): AFTDomain
+}
+
+case class SourceLoc(file: String, lineNumber: Int)
+
+object SourceLoc {
+  def fromJavaLinked(handler: SootMethod): SourceLoc =
+    SourceLoc("method linked in java", getJavaLineNumber(handler))
+}
+
 /**
  * Data domain of Abstract Flow Tree
  * NOTE: UPDATE STRUCTURAL METHODS when the data structure is changed
  */
-case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[AbsNode]]],
+case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[AbsNode]]], // FIXME: consider aliasing carefully when writing to localNodeMap
                      private val globalNodeMap: Map[SootClass, AccessPath[AbsValSet[AbsNode]]],
-                     // FIXME: consider aliasing carefully when writing to localNodeMap
+                     currentWindowClasses: Set[SootClass], // The set of possible current activity/dialog class for the current statement
                      nodeEdgeMap: Map[ViewNode, Set[ViewNode]],
                      nodeEdgeRevMap: Map[ViewNode, Set[ViewNode]],
-                     nodeHandlerMap: Map[(ViewNode, EventType), Set[SootMethod]],
+                     nodeHandlerMap: Map[(ViewNode, EventType), Set[(SootMethod, SourceLoc)]], // SourceLoc is the loc of definition
                      dialogHandlerMap: Map[(ViewNode, DialogButtonType.Value), Set[SootMethod]],
                      activityRootViewMap: Map[SootClass, Set[ViewNode]]) {
 
@@ -50,6 +62,7 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
     AFTDomain(
       AFTDomain.mergeMapOfAccessPath(localNodeMap, d.localNodeMap),
       AFTDomain.mergeMapOfAccessPath(globalNodeMap, d.globalNodeMap),
+      currentWindowClasses.union(d.currentWindowClasses),
       AFTDomain.mergeMapOfSets(nodeEdgeMap, d.nodeEdgeMap),
       AFTDomain.mergeMapOfSets(nodeEdgeRevMap, d.nodeEdgeRevMap),
       AFTDomain.mergeMapOfSets(nodeHandlerMap, d.nodeHandlerMap),
@@ -115,6 +128,7 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
         case v: ViewNode => nodeToNode(v)
         case n => n
       }, None)).toMap,
+      currentWindowClasses = currentWindowClasses,
       nodeEdgeMap = nodeEdgeMap.map { case (key, values) => (nodeToNode(key), values.map(nodeToNode)) },
       nodeEdgeRevMap = nodeEdgeRevMap.map { case (key, values) => (nodeToNode(key), values.map(nodeToNode)) },
       nodeHandlerMap = nodeHandlerMap.map { case ((node, t), handlers) => ((nodeToNode(node), t), handlers) },
@@ -142,6 +156,8 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
 
   /**
    * STRUCTURAL METHOD
+   *
+   * currentWindowClasses is not really useful in determining whether there is interesting data we want to trace here.
    */
   def nonEmpty: Boolean =
     localNodeMap.nonEmpty || globalNodeMap.nonEmpty || nodeEdgeMap.nonEmpty || nodeEdgeRevMap.nonEmpty ||
@@ -153,6 +169,7 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
   private def equivTo(domain: AFTDomain): Boolean =
     localNodeMap == domain.localNodeMap &&
       globalNodeMap == domain.globalNodeMap &&
+      currentWindowClasses == domain.currentWindowClasses &&
       nodeEdgeMap == domain.nodeEdgeMap &&
       activityRootViewMap == domain.activityRootViewMap &&
       nodeHandlerMap == domain.nodeHandlerMap &&
@@ -276,12 +293,6 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
     }
   }
 
-  def setContentViewDialog(ctxMethod: SootMethod, stmt: Stmt, dialogLocal: Local, id: Int): AFTDomain = {
-    val androidView = AppInfo.findViewById(id)
-    val viewNode = ViewNode(stmt, id = Set(id, androidView.getId.toInt), androidView = androidView)
-    inflateAFT(stmt, viewNode, androidView).withEdge(ctxMethod, stmt, dialogLocal, viewNode)
-  }
-
   def updateUnifiedObjectNodes(ctxMethod: SootMethod, stmt: Stmt, instanceInvokeExpr: InstanceInvokeExpr): AFTDomain = {
     val baseLocal = instanceInvokeExpr.getBase.asInstanceOf[Local]
     updateLocalNonViewNodes(ctxMethod, stmt, baseLocal, {
@@ -300,14 +311,6 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
       d = d.withEdge(ctxMethod, stmt, dialogLocal, viewNode)
     }
     d
-  }
-
-  def setContentViewAct(stmt: Stmt, actClass: SootClass, id: Int): AFTDomain = {
-    val view = AppInfo.findViewById(id)
-    val viewNode = ViewNode(stmt, id = Set(id, view.getId.toInt), androidView = view)
-    inflateAFT(stmt, viewNode, view).copy(
-      activityRootViewMap = activityRootViewMap + (actClass -> Set(viewNode))
-    )
   }
 
   def setContentViewAct(ctxMethod: SootMethod, stmt: Stmt, actClass: SootClass, viewLocal: Local): AFTDomain = {
@@ -331,32 +334,30 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
     })
   }
 
-  def inflate(contextMethod: SootMethod, stmt: Stmt, id: Int, ref: Ref, parentView: Local, attachToRoot: Boolean): AFTDomain = {
-    val view = AppInfo.findViewById(id)
-    val viewNode = ViewNode(stmt, id = Set(id), androidView = view)
-    val inflated = inflateAFT(stmt, viewNode, view).withNode(ref, viewNode)
-    if (attachToRoot) {
-      inflated.withEdge(contextMethod, stmt, parentView, viewNode)
-    } else {
-      inflated
-    }
-  }
-
-  def inflateAFT(stmt: Stmt, node: ViewNode, view: AndroidView): AFTDomain = {
+  /**
+   * @param optTraverser Applies to each inflated sub-node to add additional info e.g. the inlinde handlers to the domain.
+   * @return
+   */
+  def inflateAFT(stmt: Stmt, node: ViewNode, view: AndroidView,
+                 optTraverser: Option[Traverser]): AFTDomain = {
     var d = copy()
     if (view == null) {
       return d
     }
     for (child <- view.getChildren.asScala) {
       val childNode = ViewNode(stmt, id=Set(child.getId), sootClass = Some(child.getSootClass), androidView = child)
-      d = d.inflateAFT(stmt, childNode, child)
+      d = optTraverser match {
+        case Some(traverser) => traverser.withSubNode(d, childNode)
+        case None => d
+      }
+      d = d.inflateAFT(stmt, childNode, child, optTraverser)
       d = d.addEdge(node, childNode)
     }
     d
   }
 
   def setHandlers(contextMethod: SootMethod, stmt: Stmt, l: Local,
-                  eventType: EventType, handlers: Set[SootMethod]): AFTDomain = {
+                  eventType: EventType, handlers: Set[(SootMethod, SourceLoc)]): AFTDomain = {
     var d = copy()
     for (viewNode <- getViewNodes(contextMethod, stmt, l)) {
       d = d.setHandlers(viewNode, eventType, handlers)
@@ -364,10 +365,18 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
     d
   }
 
-  private def setHandlers(viewNode: ViewNode, eventType: EventType, handlers: Set[SootMethod]): AFTDomain = {
+  def setHandlers(viewNode: ViewNode, eventType: EventType, handlers: Set[(SootMethod, SourceLoc)]): AFTDomain = {
     var nodeHandlerMap2 = nodeHandlerMap
     nodeHandlerMap2 += ((viewNode, eventType) -> handlers)
     copy(nodeHandlerMap = nodeHandlerMap2)
+  }
+
+  def addHandler(viewNode: ViewNode, eventType: EventType, handler: SootMethod, sourceLoc: SourceLoc): AFTDomain = {
+    val newHandlers = nodeHandlerMap.get((viewNode, eventType)) match {
+      case Some(handlers) => handlers.+((handler, sourceLoc))
+      case None => Set((handler, sourceLoc))
+    }
+    copy(nodeHandlerMap = nodeHandlerMap + ((viewNode, eventType) -> newHandlers))
   }
 
   /**
@@ -418,7 +427,7 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
       assert(Constants.isDialogClass(viewNodeClass))
       var d = copy()
       for (buttonView <- findViewByButtonType(viewNode, buttonType)) {
-        d = d.setHandlers(buttonView, EventType.click, Set(handler))
+        d = d.setHandlers(buttonView, EventType.click, Set((handler, SourceLoc.fromJavaLinked(handler))))
       }
       d
     }
@@ -656,7 +665,7 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
 }
 
 object AFTDomain {
-  val top: AFTDomain = AFTDomain(Map(), Map(), Map(), Map(), Map(), Map(), Map())
+  val top: AFTDomain = AFTDomain(Map(), Map(), Set(), Map(), Map(), Map(), Map(), Map())
 
   def addEdgeToMap(m: Map[ViewNode, Set[ViewNode]], from: ViewNode, to: ViewNode): Map[ViewNode, Set[ViewNode]] = {
     m.get(from) match {

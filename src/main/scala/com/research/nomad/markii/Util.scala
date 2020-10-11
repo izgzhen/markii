@@ -69,4 +69,14 @@ object Util {
     }
     printWriter.close()
   }
+
+  def getJavaLineNumber(sootMethod : SootMethod): Int = {
+    for (unit <- sootMethod.getActiveBody.getUnits.asScala) {
+      val tmp = unit.getJavaSourceStartLineNumber
+      if (tmp != -1){
+        return tmp
+      }
+    }
+    -1
+  }
 }
