@@ -4,6 +4,7 @@
 
 package com.research.nomad.markii.dataflow
 
+import com.research.nomad.markii.Util.getJavaLineNumber
 import com.research.nomad.markii.{AppInfo, Constants, PreAnalyses}
 import com.research.nomad.markii.dataflow.AbsNode.{ActNode, LayoutParamsNode, ListenerNode, UnifiedObjectNode, ViewNode}
 import presto.android.gui.listener.EventType
@@ -31,6 +32,13 @@ trait Traverser {
   def withSubNode(d: AFTDomain, viewNode: ViewNode): AFTDomain
 }
 
+case class SourceLoc(file: String, lineNumber: Int)
+
+object SourceLoc {
+  def fromJavaLinked(handler: SootMethod): SourceLoc =
+    SourceLoc("method linked in java", getJavaLineNumber(handler))
+}
+
 /**
  * Data domain of Abstract Flow Tree
  * NOTE: UPDATE STRUCTURAL METHODS when the data structure is changed
@@ -40,7 +48,7 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
                      currentWindowClasses: Set[SootClass], // The set of possible current activity/dialog class for the current statement
                      nodeEdgeMap: Map[ViewNode, Set[ViewNode]],
                      nodeEdgeRevMap: Map[ViewNode, Set[ViewNode]],
-                     nodeHandlerMap: Map[(ViewNode, EventType), Set[SootMethod]],
+                     nodeHandlerMap: Map[(ViewNode, EventType), Set[(SootMethod, SourceLoc)]], // SourceLoc is the loc of definition
                      dialogHandlerMap: Map[(ViewNode, DialogButtonType.Value), Set[SootMethod]],
                      activityRootViewMap: Map[SootClass, Set[ViewNode]]) {
 
@@ -349,7 +357,7 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
   }
 
   def setHandlers(contextMethod: SootMethod, stmt: Stmt, l: Local,
-                  eventType: EventType, handlers: Set[SootMethod]): AFTDomain = {
+                  eventType: EventType, handlers: Set[(SootMethod, SourceLoc)]): AFTDomain = {
     var d = copy()
     for (viewNode <- getViewNodes(contextMethod, stmt, l)) {
       d = d.setHandlers(viewNode, eventType, handlers)
@@ -357,16 +365,16 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
     d
   }
 
-  def setHandlers(viewNode: ViewNode, eventType: EventType, handlers: Set[SootMethod]): AFTDomain = {
+  def setHandlers(viewNode: ViewNode, eventType: EventType, handlers: Set[(SootMethod, SourceLoc)]): AFTDomain = {
     var nodeHandlerMap2 = nodeHandlerMap
     nodeHandlerMap2 += ((viewNode, eventType) -> handlers)
     copy(nodeHandlerMap = nodeHandlerMap2)
   }
 
-  def addHandler(viewNode: ViewNode, eventType: EventType, handler: SootMethod): AFTDomain = {
+  def addHandler(viewNode: ViewNode, eventType: EventType, handler: SootMethod, sourceLoc: SourceLoc): AFTDomain = {
     val newHandlers = nodeHandlerMap.get((viewNode, eventType)) match {
-      case Some(handlers) => handlers.+(handler)
-      case None => Set(handler)
+      case Some(handlers) => handlers.+((handler, sourceLoc))
+      case None => Set((handler, sourceLoc))
     }
     copy(nodeHandlerMap = nodeHandlerMap + ((viewNode, eventType) -> newHandlers))
   }
@@ -419,7 +427,7 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
       assert(Constants.isDialogClass(viewNodeClass))
       var d = copy()
       for (buttonView <- findViewByButtonType(viewNode, buttonType)) {
-        d = d.setHandlers(buttonView, EventType.click, Set(handler))
+        d = d.setHandlers(buttonView, EventType.click, Set((handler, SourceLoc.fromJavaLinked(handler))))
       }
       d
     }

@@ -6,6 +6,7 @@ package com.research.nomad.markii.dataflow
 
 import java.time.Instant
 
+import com.research.nomad.markii.Util.getJavaLineNumber
 import com.research.nomad.markii.analyses.PreVASCO
 import com.research.nomad.markii.dataflow.AbsNode.{ActNode, ListenerNode, ViewNode}
 import com.research.nomad.markii.{AppInfo, Constants, DynamicCFG, GUIAnalysis, Util}
@@ -288,7 +289,8 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
         }
         for (cls <- windowClasses) {
           val method = cls.getMethodByNameUnsafe(methodInfo.getName)
-          newDomain = setEventHandler(newDomain, cls, method, eventType, viewNode)
+          newDomain = setEventHandler(newDomain, cls, method, eventType, viewNode,
+                                      SourceLoc(methodInfo.getFile, getJavaLineNumber(method)))
         }
       }
       newDomain
@@ -394,14 +396,15 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
         }
       }
     }
-    d.setHandlers(context.getMethod, stmt, viewBase, eventType, handlers)
+    d.setHandlers(context.getMethod, stmt, viewBase, eventType,
+                  handlers.map(handler => (handler, SourceLoc.fromJavaLinked(handler))))
   }
 
   /**
    * Add handler to the call-graph and abstract state
    */
-  def setEventHandler(d: AFTDomain, windowClass: SootClass,
-                      handler: SootMethod, eventType: EventType, viewNode: ViewNode): AFTDomain = {
+  def setEventHandler(d: AFTDomain, windowClass: SootClass, handler: SootMethod,
+                      eventType: EventType, viewNode: ViewNode, sourceLoc: SourceLoc): AFTDomain = {
     // FIXME: windowClass vs Activity? Maybe we can unify them?....since the virtual/fake method contains the constructed
     //  instance for all em'
     DynamicCFG.addViewHandlerToEventLoopAct(windowClass, handler) match {
@@ -414,7 +417,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
         initContext(runner, topValue())
       case None =>
     }
-    d.addHandler(viewNode, eventType, handler)
+    d.addHandler(viewNode, eventType, handler, sourceLoc)
   }
 
   override def callLocalFlowFunction(context: DomainContext, unit: soot.Unit, d: Domain): Domain = {

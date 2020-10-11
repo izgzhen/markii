@@ -1,4 +1,2 @@
-&lt;com.example.validrec.MainActivity: void startRec(android.view.View)&gt;	method linked in java	57	com.example.validrec.MainActivity	-735896381
-&lt;com.example.validrec.MainActivity: void stopRec(android.view.View)&gt;	method linked in java	86	com.example.validrec.MainActivity	845456126
-click	/var/folders/kk/ggyv8rdd7_z75mbyp8t6jkxc0000gn/T/gator-hliltj_k/res//layout/activity_main.xml	57	com.example.validrec.MainActivity	-735896381
-click	/var/folders/kk/ggyv8rdd7_z75mbyp8t6jkxc0000gn/T/gator-hliltj_k/res//layout/activity_main.xml	86	com.example.validrec.MainActivity	845456126
+&lt;com.example.validrec.MainActivity: void startRec(android.view.View)&gt;	/var/folders/kk/ggyv8rdd7_z75mbyp8t6jkxc0000gn/T/gator-dvprd9tn/res//layout/activity_main.xml	57	com.example.validrec.MainActivity	-735896381
+&lt;com.example.validrec.MainActivity: void stopRec(android.view.View)&gt;	/var/folders/kk/ggyv8rdd7_z75mbyp8t6jkxc0000gn/T/gator-dvprd9tn/res//layout/activity_main.xml	86	com.example.validrec.MainActivity	845456126
