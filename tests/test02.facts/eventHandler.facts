@@ -1,2 +1,4 @@
-click	&lt;com.example.my_first_app.MainActivity: void sendMessage(android.view.View)&gt;	939817251
-click	&lt;com.example.my_first_app.MainActivity: void fire(android.view.View)&gt;	-1165972266
+click	&lt;com.example.my_first_app.MainActivity: void sendMessage(android.view.View)&gt;	-2086065296
+click	&lt;com.example.my_first_app.FireMissilesDialogFragment$1: void onClick(android.content.DialogInterface,int)&gt;	-862350370
+click	&lt;com.example.my_first_app.FireMissilesDialogFragment$2: void onClick(android.content.DialogInterface,int)&gt;	-1784484129
+click	&lt;com.example.my_first_app.MainActivity: void fire(android.view.View)&gt;	-1725921017
