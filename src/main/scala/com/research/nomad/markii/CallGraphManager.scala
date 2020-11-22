@@ -94,7 +94,12 @@ object CallGraphManager {
 
   private val methodAndReachables = mutable.Map[SootMethod, mutable.Set[SootMethod]]()
 
+
   def reachableMethods(m: SootMethod): Set[SootMethod] = {
+    reachableMethods1(m).union(Set(m))
+  }
+
+  def reachableMethods1(m: SootMethod): Set[SootMethod] = {
     methodAndReachables.get(m) match {
       case Some(s) => return s.toSet
       case None =>

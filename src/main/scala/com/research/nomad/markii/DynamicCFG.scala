@@ -36,6 +36,30 @@ object DynamicCFG {
 
   private val dialogRunners = mutable.Map[Stmt, Runner]()
   private val dialogCreateRunners = mutable.Map[SootMethod, (Runner, Stmt)]()
+  private val dialogFragmentRunners = mutable.Map[SootClass, SootMethod]()
+
+  def getRunnerofDialogFragment(baseClass: SootClass): Option[SootMethod] = {
+    if (!dialogFragmentRunners.contains(baseClass)) {
+      val method = new SootMethod("run_dialogFragment_" + baseClass.hashCode(), List().asJava, VoidType.v, Modifier.PUBLIC)
+      baseClass.addMethod(method)
+
+      val body = Jimple.v().newBody(method)
+      method.setActiveBody(body)
+      val units = body.getUnits
+
+      val thisLocal = Jimple.v().newLocal("t0", baseClass.getType)
+      body.getLocals.add(thisLocal)
+      units.add(Jimple.v().newIdentityStmt(thisLocal, Jimple.v().newThisRef(baseClass.getType)))
+      val onCreateDialog = baseClass.getMethod("android.app.Dialog onCreateDialog(android.os.Bundle)")
+      GUIAnalysis.dialogHandlerToAnalyze.add(onCreateDialog)
+      val createDialogStmt = Jimple.v().newInvokeStmt(Jimple.v().newVirtualInvokeExpr(thisLocal, onCreateDialog.makeRef(), NullConstant.v()))
+      units.add(createDialogStmt)
+      Scene.v().getCallGraph.addEdge(new Edge(method, createDialogStmt, onCreateDialog))
+
+      dialogFragmentRunners.put(baseClass, method)
+    }
+    dialogFragmentRunners.get(baseClass)
+  }
 
   def getRunnerOfDialog(ownerClass: SootClass, createMethod: SootMethod, arg: Value): Option[(Runner, Stmt)] = {
     if (!dialogCreateRunners.contains(createMethod)) {

@@ -15,7 +15,7 @@ import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
 object PreVASCO {
-  private val showDialogInvocations = mutable.Map[Stmt, Local]()
+  val showDialogInvocations = mutable.Map[Stmt, Local]()
   // NOTE: a type-safe way to prevent missing run All to configure heap transfer
   private val startWindowStmts: mutable.Set[Stmt] = mutable.Set()
 

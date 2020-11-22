@@ -189,7 +189,7 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
     }
   }
 
-  override def toString: String = sizeSummary.toString
+  override def toString: String = sizeSummary.toString + "\n" + nodeEdgeMap.toString
 
   def getViewNodes(contextMethod: SootMethod, stmt: Stmt, local: Local): Iterable[ViewNode] = {
     getNodes(contextMethod, stmt, local).collect { case v: ViewNode => v }
@@ -450,9 +450,16 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
     var d = copy()
     d = d.updateLocalViewNodes(ctxMethod, stmt, viewLocal,{
       case viewNode: ViewNode =>
-        val newAttr = Set((AndroidView.ViewAttr.dialogMessage, param)).collect {
+        val newAttr = Set((AndroidView.ViewAttr.dialogMessage, param)).flatMap{
           case (attr, stringConstant: StringConstant) =>
-            (attr, stringConstant.value)
+            Some((attr, stringConstant.value))
+          case (attr, intConstant: IntConstant) =>
+            AppInfo.getStringResourceValueById(intConstant.value) match{
+              case Some(s) =>
+                Some((attr, s))
+              case _ => None
+            }
+          case _ => None
         }
         viewNode.setAttributes(newAttr)
       case n => n

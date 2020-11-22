@@ -8,14 +8,15 @@ import java.time.Instant
 
 import com.research.nomad.markii.Util.getJavaLineNumber
 import com.research.nomad.markii.analyses.PreVASCO
+import com.research.nomad.markii.analyses.PreVASCO.{showDialogInvocations, startWindowStmts}
 import com.research.nomad.markii.dataflow.AbsNode.{ActNode, ListenerNode, ViewNode}
-import com.research.nomad.markii.{AppInfo, Constants, DynamicCFG, GUIAnalysis, Util}
+import com.research.nomad.markii.{AppInfo, CallGraphManager, Constants, DynamicCFG, GUIAnalysis, Util}
 import io.github.izgzhen.msbase.{IOUtil, JsonUtil}
 import presto.android.gui.listener.EventType
 
 import scala.jdk.CollectionConverters._
 import soot.jimple.internal.{JIdentityStmt, JimpleLocal}
-import soot.jimple.{AssignStmt, CastExpr, InstanceFieldRef, InstanceInvokeExpr, IntConstant, InvokeExpr, NewExpr, ReturnStmt, StaticFieldRef, Stmt, ThisRef}
+import soot.jimple.{AssignStmt, CastExpr, InstanceFieldRef, InstanceInvokeExpr, IntConstant, InvokeExpr, Jimple, NewExpr, ReturnStmt, StaticFieldRef, Stmt, ThisRef}
 import soot.{Local, RefType, Scene, SootClass, SootMethod, Value}
 import vasco.{ForwardInterProceduralAnalysis, ProgramRepresentation, VascoContext}
 
@@ -71,6 +72,8 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
           killed.newLayoutParams(ref)
         } else if (UnifiedObjectAPI.isBaseClass(sootClass)) {
           killed.newUnifiedObject(ref, sootClass, assignStmt)
+        } else if(Constants.isDialogFragment(sootClass)) {
+          killed.newView(ref, sootClass, assignStmt)
         } else {
           killed
         }
@@ -521,6 +524,21 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
               println("Unhandled: " + invokeExpr.getMethod.getSignature)
             }
           }
+          if (AppInfo.hier.isSubclassOf(invokeExpr.getMethod.getDeclaringClass, Constants.dialogFragmentClass)){
+            if (invokeExpr.getMethod.getName == "<init>") {
+              if (invokeExpr.getMethod.getSubSignature == "void <init>()") {
+                return setDialogFragmentInfo(d, context, stmt, invokeExpr.asInstanceOf[InstanceInvokeExpr])
+              }
+            }
+          }
+          if (AppInfo.hier.isSubclassOf(invokeExpr.getMethod.getDeclaringClass, Constants.dialogFragmentClass)){
+            if (invokeExpr.getMethod.getName == "show") {
+              if (invokeExpr.getMethod.getSubSignature == "void show(androidx.fragment.app.FragmentManager,java.lang.String)") {
+                PreVASCO.showDialogInvocations.put(stmt, invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.asInstanceOf[Local])
+                return d
+              }
+            }
+          }
           invokeExpr match {
             case instanceInvokeExpr: InstanceInvokeExpr =>
               val sootClass = instanceInvokeExpr.getMethod.getDeclaringClass
@@ -549,6 +567,27 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
       }
     }
     output
+  }
+
+  private def setDialogFragmentInfo(d: AFTDomain, context: DomainContext, stmt: Stmt, invokeExpr: InstanceInvokeExpr): AFTDomain = {
+    val baseLocal = invokeExpr.getBase
+    val baseClass = baseLocal.getType.asInstanceOf[RefType].getSootClass
+    DynamicCFG.getRunnerofDialogFragment(baseClass) match { // find FireMissileDialogFragment
+      case Some((runner)) =>
+        val invocation = Jimple.v().newInvokeStmt(Jimple.v().newVirtualInvokeExpr(baseLocal.asInstanceOf[Local], runner.makeRef()))
+        CallGraphManager.updateCall(context.getMethod, stmt, invocation, runner.method)
+        aftProgramRepresentation.refreshCFGcache(runner)
+        val callers = getCallers(context)
+        if (callers != null) {
+          for (caller <- callers.asScala) {
+            caller.getCallingContext.setValueBefore(invocation, topValue())
+            caller.getCallingContext.setValueAfter(invocation, topValue())
+            initContext(runner, topValue())
+          }
+        }
+        d.newView(Ref.LocalRef(baseLocal.asInstanceOf[Local]), baseClass, stmt)
+      case None => d
+    }
   }
 
   override def boundaryValue(m: SootMethod): Domain = topValue()

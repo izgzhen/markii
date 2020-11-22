@@ -69,6 +69,7 @@ object AbsNode {
       if (buttonType.nonEmpty) {
         attrStrings.addOne(f"buttonType: ${buttonType.get}")
       }
+      attrStrings.addOne(f"attributes: ${attributes}" )
       f"ViewNode(${attrStrings.mkString(",")})"
     }
 
