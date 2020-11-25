@@ -46,6 +46,8 @@ object GUIAnalysis extends IAnalysis {
   private var icfg: JimpleBasedInterproceduralCFG = _
   private var vascoSolution: DataFlowSolution[soot.Unit, AFTDomain] = _
 
+  val dialogHandlerToAnalyze = mutable.Set[SootMethod]();
+
   override def run(): Unit = {
     println("Pre-analysis time: " + Debug.v().getExecutionTime + " seconds")
     println("Mark II")
@@ -158,9 +160,9 @@ object GUIAnalysis extends IAnalysis {
               writer.writeFact(FactsWriter.Fact.actionButton, viewNode.nodeID)
             }
           case AndroidView.ViewAttr.dialogTitle =>
-            writer.writeDimensionFact(FactsWriter.Fact.dialogTitle, value, viewNode.nodeID)
+            writer.writeFact(FactsWriter.Fact.dialogTitle, value, viewNode.nodeID)
           case AndroidView.ViewAttr.dialogMessage =>
-            writer.writeDimensionFact(FactsWriter.Fact.dialogMessage, value, viewNode.nodeID)
+            writer.writeFact(FactsWriter.Fact.dialogMessage, value, viewNode.nodeID)
           case AndroidView.ViewAttr.contentDescription => hasContentDescription = true
           case _ =>
         }
@@ -303,6 +305,7 @@ object GUIAnalysis extends IAnalysis {
         writer.writeFact(FactsWriter.Fact.activityEventHandler, event, handler, act)
         analyzeActivityHandlerPostVasco(handler)
       }
+
       val lifecycleMethods = List(
         act.getMethodUnsafe(MethodNames.onActivityCreateSubSig),
         act.getMethodUnsafe(MethodNames.onActivityStartSubSig)
@@ -317,6 +320,10 @@ object GUIAnalysis extends IAnalysis {
 
     for (handler <- AppInfo.getAllHandlers) {
       analyzeAnyHandlerPostVASCO(handler)
+    }
+
+    for (method <- dialogHandlerToAnalyze) {
+      analyzeActivityHandlerPostVasco(method)
     }
 
     if (AppInfo.mainActivity != null) {
@@ -434,6 +441,8 @@ object GUIAnalysis extends IAnalysis {
                 }
               }
               // FIXME: frauddroid-gba.apk "<android.app.Activity: void showDialog(int)>" and onPrepareDialog, onCreateDialog
+              // 1. localNodeMap should include the dialogNode that was initialized in previous lines
+              // 2. iterate dialogHandlerToAnalyze
               if (aftDomain != null) {
                 PreVASCO.getShowDialogInvocations(stmt) match {
                   case Some(dialogBase) => {
@@ -451,6 +460,9 @@ object GUIAnalysis extends IAnalysis {
                   }
                   case _ =>
                 }
+              }
+              for(dialogHandler <- dialogHandlerToAnalyze){
+                analyzeAnyHandlerPostVASCO(dialogHandler)
               }
               if (invokedMethod.getSignature == "<com.google.ads.consent.ConsentInformation: void setConsentStatus(com.google.ads.consent.ConsentStatus)>") {
                 writer.writeFact(FactsWriter.Fact.setStatus, handler, reached)

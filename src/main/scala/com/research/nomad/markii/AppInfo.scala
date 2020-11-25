@@ -24,6 +24,11 @@ object AppInfo {
 
   def findViewById(id: Int): AndroidView = xmlParser.findViewById(id)
 
+  def getStringResourceValueById(id: Int): Option[String] = xmlParser.getStringValue(id) match {
+    case null => None
+    case s => Some(s)
+  }
+
   private def initAllHandlers(): Unit = {
     for (c <- Scene.v().getApplicationClasses.asScala) {
       if (c.isConcrete && Constants.guiClasses.exists(listener => hier.isSubclassOf(c, listener))) {

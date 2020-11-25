@@ -26,6 +26,7 @@ object Constants {
   val prefActivity: SootClass = Scene.v.getSootClass("android.preference.PreferenceActivity")
 
   val layoutParamsClass: SootClass = Scene.v.getSootClass("android.view.ViewGroup$LayoutParams")
+  val dialogFragmentClass: SootClass = Scene.v.getSootClass("androidx.fragment.app.DialogFragment")
 
   def isWhitelistedMethod(method: SootMethod): Boolean =
     activityHandlerSubsigs.contains(method.getSubSignature) ||
@@ -71,7 +72,8 @@ object Constants {
     "android.support.v7.app.AlertDialog",
     "android.app.AlertDialog",
     "androidx.appcompat.app.AlertDialog",
-    "android.app.Dialog"
+    "android.app.Dialog",
+    "android.app.AlertDialog$Builder"
   )
 
   def isDialogBuilderClass(sootClass: SootClass): Boolean =
@@ -79,6 +81,9 @@ object Constants {
 
   def isDialogClass(sootClass: SootClass): Boolean =
     dialogClassNames.exists(x => AppInfo.hier.isSubclassOf(sootClass, Scene.v().getSootClass(x)))
+
+  def isDialogFragment(sootClass: SootClass): Boolean =
+    AppInfo.hier.isSubclassOf(sootClass, dialogFragmentClass)
 
   def isDialogBuilderCreate(sig: String): Boolean =
     dialogClassNames.exists(x => sig == "<" + x + "$Builder: " + x + " create()>")
@@ -96,7 +101,8 @@ object Constants {
     dialogClassNames.exists(x => sig.startsWith("<" + x + ": void setTitle("))
 
   def isDialogSetMessage(sig: String): Boolean =
-    dialogClassNames.exists(x => sig.startsWith("<" + x + ": void setMessage(" ))
+    dialogClassNames.exists(x => sig.startsWith("<" + x + ": void setMessage(" )) ||
+    dialogClassNames.exists(x => sig.startsWith("<" + x + ": " + x + " setMessage("))
 
   def isDialogBuilderSetAny(subSig: String): Boolean =
     dialogClassNames.exists(x => subSig.startsWith(x + "$Builder set"))

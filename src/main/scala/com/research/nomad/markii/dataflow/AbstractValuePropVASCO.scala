@@ -71,6 +71,8 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
           killed.newLayoutParams(ref)
         } else if (UnifiedObjectAPI.isBaseClass(sootClass)) {
           killed.newUnifiedObject(ref, sootClass, assignStmt)
+        } else if(Constants.isDialogFragment(sootClass)) {
+          killed.newView(ref, sootClass, assignStmt)
         } else {
           killed
         }
@@ -259,9 +261,11 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
   // ???: How is the exit flow joined with the flow in the caller context? How is the caller context updated?
   override def callExitFlowFunction(context: DomainContext, m: SootMethod, unit: soot.Unit, d: Domain): Domain = {
     var ret = d.getHeap
+    var lhs: Option[soot.Local] = None
     unit match {
       case assignStmt: AssignStmt =>
-        ret = assigned(context, assignStmt, Ref.LocalRef(assignStmt.getLeftOp.asInstanceOf[Local]), RETURN_LOCAL, d, ret)
+        lhs = Some(assignStmt.getLeftOp.asInstanceOf[Local])
+        ret = assigned(context, assignStmt, Ref.LocalRef(lhs.get), RETURN_LOCAL, d, ret)
       case _ =>
     }
     unit.asInstanceOf[Stmt].getInvokeExpr match {
@@ -269,7 +273,9 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
         val base = instanceInvokeExpr.getBase.asInstanceOf[Local]
         if (instanceInvokeExpr.getMethod.hasActiveBody) {
           val thisLocal = instanceInvokeExpr.getMethod.getActiveBody.getThisLocal
-          ret = assigned(context, unit.asInstanceOf[Stmt], Ref.LocalRef(base), thisLocal, d, ret)
+          if (!lhs.contains(base)) { // FIXME: join them properly
+            ret = assigned(context, unit.asInstanceOf[Stmt], Ref.LocalRef(base), thisLocal, d, ret)
+          }
         }
       case _ =>
     }
@@ -519,6 +525,11 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
                 return d.initLayoutParams(context.getMethod, stmt, paramsBase, invokeExpr.getArg(0), invokeExpr.getArg(1))
               }
               println("Unhandled: " + invokeExpr.getMethod.getSignature)
+            }
+          }
+          if (AppInfo.hier.isSubclassOf(invokeExpr.getMethod.getDeclaringClass, Constants.dialogFragmentClass)){
+            if (invokeExpr.getMethod.getSubSignature == "void show(androidx.fragment.app.FragmentManager,java.lang.String)") {
+              PreVASCO.showDialogInvocations.put(stmt, invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.asInstanceOf[Local])
             }
           }
           invokeExpr match {
