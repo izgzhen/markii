@@ -32,3 +32,11 @@ Supported facts (partial, see [`Fact`](https://blog.zhen-zhang.com/markii/api/co
 ## Algorithms
 
 [Tutorial](https://blog.zhen-zhang.com/markii/algorithm-tutorial.html)
+
+## Acknowledgements
+
+- http://web.cse.ohio-state.edu/presto/software/gator/
+
+## Contributors
+
+- Luxi Wang
