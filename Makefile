@@ -65,7 +65,8 @@ $(JARFILE): $(JAVA_FILES) $(SCALA_FILES)
 jar: $(JARFILE)
 
 gendoc:
-	sbt doc
-	rm -rf docs/api
-	cp -r target/scala-2.13/api docs
+	# sbt doc
+	# rm -rf docs/api
+	# cp -r target/scala-2.13/api docs
 	pandoc README.md -o docs/index.html
+	pandoc docs/algorithm-tutorial.md -o docs/algorithm-tutorial.html

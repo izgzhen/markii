@@ -28,3 +28,7 @@ Supported facts (partial, see [`Fact`](https://blog.zhen-zhang.com/markii/api/co
 - `idName(n: String, v: ViewID)`
   - The id-name of view `v` is `n`
 - ...
+
+## Algorithms
+
+[Tutorial](https://blog.zhen-zhang.com/markii/algorithm-tutorial.html)
