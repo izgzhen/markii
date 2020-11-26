@@ -33,6 +33,11 @@ Supported facts (partial, see [`Fact`](https://blog.zhen-zhang.com/markii/api/co
 
 [Tutorial](https://blog.zhen-zhang.com/markii/algorithm-tutorial.html)
 
+`SPARK` is the default call graph and pointer analysis producer for Soot.
+It is better than CHA though flow-insensitive and context-insensitive.
+Also, older Soot library's `SPARK` has some problems processing the latest versions of android apps.
+
+
 ## Acknowledgements
 
 - http://web.cse.ohio-state.edu/presto/software/gator/
