@@ -1,0 +1,15 @@
+click	&lt;com.applovin.impl.adview.ca: void onClick(android.view.View)&gt;	-494892805
+click	&lt;com.applovin.impl.adview.bz: void onClick(android.view.View)&gt;	13218247
+touch	&lt;com.applovin.impl.adview.o: boolean onTouch(android.view.View,android.view.MotionEvent)&gt;	-1013357201
+click	&lt;com.revlwp.wallpaper.newlp.SettingsActivity$4: void onClick(android.view.View)&gt;	-828650483
+click	&lt;com.revlwp.wallpaper.newlp.SettingsActivity$3: void onClick(android.view.View)&gt;	226360502
+click	&lt;com.revlwp.wallpaper.newlp.SettingsActivity$2: void onClick(android.view.View)&gt;	722497995
+touch	&lt;com.applovin.impl.adview.o: boolean onTouch(android.view.View,android.view.MotionEvent)&gt;	-1040435368
+touch	&lt;com.applovin.adview.AppLovinTouchToClickListener: boolean onTouch(android.view.View,android.view.MotionEvent)&gt;	-767381212
+click	&lt;com.applovin.impl.adview.bb: void onClick(android.view.View)&gt;	1861614831
+click	&lt;com.applovin.impl.adview.bz: void onClick(android.view.View)&gt;	-790772978
+click	&lt;com.applovin.impl.adview.bz: void onClick(android.view.View)&gt;	196786665
+click	&lt;com.revlwp.wallpaper.newlp.MainActivity$2: void onClick(android.view.View)&gt;	-127902300
+click	&lt;com.revlwp.wallpaper.newlp.MainActivity$4: void onClick(android.view.View)&gt;	1878256914
+click	&lt;com.revlwp.wallpaper.newlp.MainActivity$3: void onClick(android.view.View)&gt;	1303927792
+click	&lt;com.revlwp.wallpaper.newlp.MainActivity$5: void onClick(android.view.View)&gt;	1171621597
