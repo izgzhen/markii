@@ -4,6 +4,7 @@
 
 package com.research.nomad.markii.dataflow
 
+import com.research.nomad.markii.Util
 import presto.android.gui.listener.EventType
 import presto.android.xml.{AndroidView, MethodInfo}
 import soot.SootClass
@@ -41,6 +42,34 @@ object AbsNode {
                             buttonType: Option[DialogButtonType.Value] = None,
                             private val androidView: AndroidView = null) extends AbsNode {
 
+    // We want this ID to be deterministic across runs..
+    val nodeID: Int = {
+      var hashCode = Util.stmtId(allocSite)
+      for (i <- id) {
+        hashCode ^= i
+      }
+      sootClass match {
+        case Some(c) =>
+          hashCode ^= c.getName.hashCode
+        case None =>
+      }
+      for ((viewAttr, values) <- attributes) {
+        hashCode ^= viewAttr.ordinal << 1
+        for (v <- values) {
+          hashCode ^= v.hashCode
+        }
+      }
+      buttonType match {
+        case Some(t) =>
+          hashCode ^= t.id << 2
+        case None =>
+      }
+      if (androidView != null) {
+        hashCode ^= androidView.getId.toInt << 3
+      }
+      hashCode
+    }
+
     // FIXME: merge attributes without changing the hash code?
     //        or maybe factoring out the attribute map into another abstract state?
     def setAttributes(attrs: Set[(AndroidView.ViewAttr, String)]): ViewNode = {
@@ -55,8 +84,6 @@ object AbsNode {
       }
       copy(attributes = newAttrs.toMap)
     }
-
-    def nodeID: Int = hashCode()
 
     override def toString: String = {
       val attrStrings = mutable.ArrayBuffer[String]()
