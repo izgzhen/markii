@@ -40,7 +40,7 @@ object DynamicCFG {
 
   def getRunnerofDialogFragment(baseClass: SootClass): Option[SootMethod] = {
     if (!dialogFragmentRunners.contains(baseClass)) {
-      val method = new SootMethod("run_dialogFragment_" + baseClass.hashCode(), List().asJava, VoidType.v, Modifier.PUBLIC)
+      val method = new SootMethod("_run_dialog_fragment", List().asJava, VoidType.v, Modifier.PUBLIC)
       baseClass.addMethod(method)
 
       val body = Jimple.v().newBody(method)
@@ -66,7 +66,8 @@ object DynamicCFG {
 
   def getRunnerOfDialog(ownerClass: SootClass, createMethod: SootMethod, arg: Value): Option[(Runner, Stmt)] = {
     if (!dialogCreateRunners.contains(createMethod)) {
-      val method = new SootMethod("run_dialog_" + createMethod.hashCode(), List().asJava, VoidType.v, Modifier.PUBLIC)
+      val method = new SootMethod("run_dialog_" + Util.genUniqueAlphaNumericNameFrom(createMethod),
+                                  List().asJava, VoidType.v, Modifier.PUBLIC)
       ownerClass.addMethod(method)
 
       val body = Jimple.v().newBody(method)
@@ -102,7 +103,7 @@ object DynamicCFG {
       }
       if (rhsTypeOption.isEmpty) return None
       val rhsType = rhsTypeOption.get
-      val method = new SootMethod("run_dialog_" + defStmt.hashCode(),
+      val method = new SootMethod("_run_dialog_" + Util.genUniqueAlphaNumericNameFrom(defStmt),
         List(rhsType).asJava, VoidType.v, Modifier.PUBLIC | Modifier.STATIC)
       getUtilsBaseClass.addMethod(method)
       val body = Jimple.v().newBody(method)
@@ -186,7 +187,7 @@ object DynamicCFG {
   def getRunAllDialog(stmt: Stmt, methods: Iterable[SootMethod], ctxMethod: SootMethod): SootMethod = {
     if (!runAllMethods.contains(stmt)) {
       val base = stmt.getInvokeExpr.asInstanceOf[InstanceInvokeExpr].getBase
-      val runAllMethod = new SootMethod("runAll_" + stmt.hashCode(),
+      val runAllMethod = new SootMethod("_run_" + Util.genUniqueAlphaNumericNameFrom(stmt),
         List(base.getType).asJava, VoidType.v, Modifier.PUBLIC | Modifier.STATIC)
       getUtilsBaseClass.addMethod(runAllMethod)
       val body = Jimple.v().newBody(runAllMethod)
@@ -228,7 +229,7 @@ object DynamicCFG {
 
   def getRunAll(stmt: Stmt, methods: Iterable[SootMethod], baseClass: SootClass, replaced: SootMethod): SootMethod = {
     if (!runAllMethods.contains(stmt)) {
-      val runAllMethod = new SootMethod("runAll_" + stmt.hashCode(),
+      val runAllMethod = new SootMethod("_run_" + Util.genUniqueAlphaNumericNameFrom(stmt),
         replaced.getParameterTypes, VoidType.v, Modifier.PUBLIC)
       baseClass.addMethod(runAllMethod)
       val body = Jimple.v().newBody(runAllMethod)

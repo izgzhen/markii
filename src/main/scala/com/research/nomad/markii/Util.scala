@@ -79,4 +79,35 @@ object Util {
     }
     -1
   }
+
+  private val stmtIds: mutable.Map[Stmt, Int] = mutable.Map()
+  def stmtId(stmt: Stmt): Int = {
+    if (stmtIds.contains(stmt)) {
+      stmtIds(stmt)
+    } else {
+      val m = GUIAnalysis.getMethodOf(stmt)
+      val i = (stmt.toString() + m.getSignature).hashCode
+      stmtIds.put(stmt, i)
+      i
+    }
+  }
+
+  private var uniqueNameCounter: Int = 0
+  private val uniqueNames: mutable.Set[String] = mutable.Set()
+
+  private def genUniqueAlphaNumericNameFrom(s: String): String = {
+    if (uniqueNames.contains(s)) {
+      uniqueNameCounter += 1
+      s + uniqueNameCounter.toString
+    } else {
+      s
+    }
+  }
+
+  def genUniqueAlphaNumericNameFrom(stmt: Stmt): String = "s" + stmtId(stmt)
+
+  def genUniqueAlphaNumericNameFrom(method: SootMethod): String = {
+    genUniqueAlphaNumericNameFrom(
+      method.getDeclaringClass.getName + "_" + method.getName + "_" + method.getSignature.hashCode.abs)
+  }
 }

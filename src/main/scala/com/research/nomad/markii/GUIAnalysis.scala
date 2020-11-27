@@ -49,6 +49,7 @@ object GUIAnalysis extends IAnalysis {
   val dialogHandlerToAnalyze = mutable.Set[SootMethod]();
 
   override def run(): Unit = {
+    icfg = new JimpleBasedInterproceduralCFG()
     println("Pre-analysis time: " + Debug.v().getExecutionTime + " seconds")
     println("Mark II")
     readConfigs()
@@ -184,11 +185,13 @@ object GUIAnalysis extends IAnalysis {
         writer.writeFact(FactsWriter.Fact.viewClass, c.getName, viewNode.nodeID)
         if (AppInfo.hier.isSubclassOf(c, Constants.buttonViewClass)) writer.writeFact(FactsWriter.Fact.buttonView, viewNode.nodeID)
         if (Constants.isDialogClass(c)) {
-          writer.writeFact(FactsWriter.Fact.dialogView, viewNode.nodeID, icfg.getMethodOf(viewNode.allocSite))
+          writer.writeFact(FactsWriter.Fact.dialogView, viewNode.nodeID, getMethodOf(viewNode.allocSite))
         }
       case None =>
     }
   }
+
+  def getMethodOf(stmt: Stmt): SootMethod = icfg.getMethodOf(stmt)
 
   private def analyzeActivityHandlerPostVasco(handler: SootMethod): Unit = {
     for (endpoint <- icfg.getEndPointsOf(handler).asScala) {
@@ -281,7 +284,6 @@ object GUIAnalysis extends IAnalysis {
   }
 
   private def runIFDS(): Unit = {
-    icfg = new JimpleBasedInterproceduralCFG()
     val analysis = new AbstractValuePropIFDS(icfg)
     ifdsSolver = new IFDSSolver(analysis)
     System.out.println("======================== IFDS Solver started  ========================")
@@ -447,7 +449,7 @@ object GUIAnalysis extends IAnalysis {
                 PreVASCO.getShowDialogInvocations(stmt) match {
                   case Some(dialogBase) => {
                     for (dialogNode <- aftDomain.getViewNodes(reached, stmt, dialogBase)) {
-                      writer.writeFact(FactsWriter.Fact.dialogView, dialogNode.nodeID, icfg.getMethodOf(dialogNode.allocSite))
+                      writer.writeFact(FactsWriter.Fact.dialogView, dialogNode.nodeID, getMethodOf(dialogNode.allocSite))
                       writer.writeFact(FactsWriter.Fact.showDialog, handler, reached, dialogNode.nodeID)
                       // Write fact about dialog's YES/NO buttons' handlers
                       for (buttonType <- DialogButtonType.values) {
