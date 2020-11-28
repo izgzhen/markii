@@ -5,6 +5,7 @@
 package com.research.nomad.markii.dataflow
 
 import com.research.nomad.markii.Util
+import com.research.nomad.markii.dataflow.AbsNode.AnyNode
 import presto.android.gui.listener.EventType
 import presto.android.xml.{AndroidView, MethodInfo}
 import soot.SootClass
@@ -24,7 +25,9 @@ object AbsAttr {
 /**
  * Node in Abstract Flow Tree
  */
-sealed abstract class AbsNode extends Product with Serializable
+sealed abstract class AbsNode extends Product with Serializable with AbsVal[AbsNode] {
+  override def meet(other: AbsNode): AbsNode = AnyNode()
+}
 
 object AbsNode {
   /**
@@ -70,8 +73,6 @@ object AbsNode {
       hashCode
     }
 
-    // FIXME: merge attributes without changing the hash code?
-    //        or maybe factoring out the attribute map into another abstract state?
     def setAttributes(attrs: Set[(AndroidView.ViewAttr, String)]): ViewNode = {
       val newAttrs = mutable.Map[AndroidView.ViewAttr, Set[String]]()
       for ((attr, value) <- attrs) {
@@ -121,6 +122,8 @@ object AbsNode {
       List()
     }
   }
+
+  final case class AnyNode() extends AbsNode
 
   final case class ActNode(sootClass: SootClass) extends AbsNode
 

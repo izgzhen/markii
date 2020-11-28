@@ -6,12 +6,18 @@ package com.research.nomad.markii.dataflow
 
 import scala.collection.mutable
 
+/**
+ * Finiteness is guaranteed by the individual implementations.
+ * @tparam D Concrete type of abstract value
+ */
 trait AbsVal[D] {
   def meet(other: D): D
 }
 
 /**
  * Access path models an pointer with data and sub-fields
+ *
+ * Finiteness is guaranteed by the maxDepth cut-off
  *
  * @param data: Data associated with the current access-path
  * @param fields: fields to children access paths

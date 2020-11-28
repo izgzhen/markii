@@ -14,6 +14,8 @@ import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Paths
 
+import com.research.nomad.markii.dataflow.custom.AbsFS
+
 import scala.collection.mutable
 
 object FactsWriter {
@@ -98,20 +100,24 @@ class FactsWriter(val factDir: String) {
     writeFact_(fact, args: _*)
   }
 
+  private def argToString(arg: Any): String =
+    arg match {
+      case _: Integer => arg.toString
+      case method: SootMethod => StringEscapeUtils.escapeHtml4(method.getSignature)
+      case clazz: SootClass => StringEscapeUtils.escapeHtml4(clazz.getName)
+      case str: String => StringEscapeUtils.escapeHtml4(str)
+      case AbsFS(Some(v)) => argToString(v)
+      case eventType: EventType => eventType.name
+      case _ => throw new RuntimeException("Write invalid arg " + arg + ": " + arg.getClass)
+    }
+
   private def writeFact_(fact: FactsWriter.Fact.Value, args: Any*): Unit = {
     val builder = new StringBuilder
     var noTab = true
     for (arg <- args) {
       if (noTab) noTab = false
       else builder.append("\t")
-      arg match {
-        case _: Integer => builder.append(arg.toString)
-        case method: SootMethod => builder.append(StringEscapeUtils.escapeHtml4(method.getSignature))
-        case clazz: SootClass => builder.append(StringEscapeUtils.escapeHtml4(clazz.getName))
-        case str: String => builder.append(StringEscapeUtils.escapeHtml4(str))
-        case _: EventType => builder.append(arg)
-        case _ => throw new RuntimeException("Write invalid arg " + arg + ": " + arg.getClass)
-      }
+      builder.append(argToString(arg))
     }
     builder.append("\n")
     val line = builder.toString

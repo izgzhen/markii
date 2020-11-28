@@ -20,9 +20,14 @@ object DialogButtonType extends Enumeration {
   val POSITIVE, NEGATIVE, NEUTRAL = Value
 }
 
-case class AbsValSet[D](vals: Set[D] = Set()) extends AbsVal[AbsValSet[D]] {
+case class AbsValSet[D <: AbsVal[D]](vals: Set[D] = Set(), merged: Option[D] = None) extends AbsVal[AbsValSet[D]] {
   override def meet(other: AbsValSet[D]): AbsValSet[D] = {
-    AbsValSet[D](vals ++ other.vals)
+    val allValues = vals ++ other.vals
+    if (allValues.size > 100) {
+      val merged: D = allValues.reduce((v1, v2) => v1.meet(v2))
+      return AbsValSet(vals=Set(), merged=Some(merged))
+    }
+    AbsValSet[D](allValues)
   }
 
   def map(f: D => D): AbsValSet[D] = AbsValSet[D](vals.map(f))

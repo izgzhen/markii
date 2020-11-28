@@ -8,7 +8,7 @@ import java.io.PrintWriter
 
 import com.research.nomad.markii.analyses.PreVASCO
 import com.research.nomad.markii.dataflow.AbsNode.ViewNode
-import com.research.nomad.markii.dataflow.custom.FromConfig
+import com.research.nomad.markii.dataflow.custom.{AbsFS, FromConfig}
 import com.research.nomad.markii.dataflow.{AFTDomain, AbsAttr, AbsNode, AbsValSet, AbstractValue, AbstractValuePropIFDS, AbstractValuePropVASCO, CustomStatePropVASCO, DialogButtonType}
 import com.research.nomad.markii.instrument.{AllInstrument, DialogCreateInstrument, DialogInitInstrument}
 import heros.InterproceduralCFG
@@ -253,7 +253,7 @@ object GUIAnalysis extends IAnalysis {
         args => (args(2).asInstanceOf[SootMethod], EventType.implicit_time_tick)).toMap
 
     val fromConfig = new FromConfig(apiSemanticConfig.get)
-    val vascoProp = new CustomStatePropVASCO[AbsValSet[String]](entrypointsFull ++ eventHandlers.keys.toList, fromConfig)
+    val vascoProp = new CustomStatePropVASCO[AbsValSet[AbsFS]](entrypointsFull ++ eventHandlers.keys.toList, fromConfig)
     println("VASCO starts")
     vascoProp.doAnalysis()
     println("VASCO finishes")
