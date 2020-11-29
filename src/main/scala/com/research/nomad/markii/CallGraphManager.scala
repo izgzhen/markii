@@ -40,7 +40,7 @@ object CallGraphManager {
                   stmt.getInvokeExpr match {
                     case instanceInvokeExpr: InstanceInvokeExpr =>
                       instanceInvokeExpr.getBase.getType match {
-                        case refType: RefType =>
+                        case refType: RefType if refType.getSootClass.isConcrete =>
                           val dispatchedTarget = AppInfo.hier.virtualDispatch(invokedTarget, refType.getSootClass)
                           if (dispatchedTarget != null && isTargetMethod(dispatchedTarget)) {
                             dispatchedTargets.add(dispatchedTarget)
@@ -77,11 +77,13 @@ object CallGraphManager {
                 }
                 if (target.getSignature == "<android.os.Handler: boolean postDelayed(java.lang.Runnable,long)>") {
                   val runnableType = stmt.getInvokeExpr.getArg(0).getType.asInstanceOf[RefType]
-                  val run = AppInfo.hier.virtualDispatch(Scene.v().getMethod("<java.lang.Runnable: void run()>"), runnableType.getSootClass)
-                  if (run != null) {
-                    extraEdgeOutMap.getOrElseUpdate(m, mutable.Set()).add(run)
-                  } else {
-                    println("No run in " + runnableType.getSootClass)
+                  if (runnableType.getSootClass.isConcrete) {
+                    val run = AppInfo.hier.virtualDispatch(Scene.v().getMethod("<java.lang.Runnable: void run()>"), runnableType.getSootClass)
+                    if (run != null) {
+                      extraEdgeOutMap.getOrElseUpdate(m, mutable.Set()).add(run)
+                    } else {
+                      println("No run in " + runnableType.getSootClass)
+                    }
                   }
                 }
               }

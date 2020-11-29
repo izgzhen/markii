@@ -184,12 +184,7 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
     if (obj == null) return false
     if (super.equals(obj)) return true
     obj match {
-      case domain: AFTDomain =>
-        if (hashCode() == domain.hashCode()) {
-          equivTo(domain)
-        } else {
-          false
-        }
+      case domain: AFTDomain => equivTo(domain)
       case _ => false
     }
   }
@@ -696,6 +691,9 @@ object AFTDomain {
     mergeMaps(m1, m2, (m1: Set[V], m2: Set[V]) => m1 ++ m2)
   }
 
+  /**
+   * FIXME: This can be very slow (azoo-vbstatsfree.apk)
+   */
   def mergeMaps[K, V](m1: Map[K, V], m2: Map[K, V], f: (V, V) => V): Map[K, V] = {
     (m1.keySet ++ m2.keySet).map(k => {
       if (m1.contains(k) && m2.contains(k)) {
