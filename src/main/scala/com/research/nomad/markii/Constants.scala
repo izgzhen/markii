@@ -125,7 +125,7 @@ object Constants {
       "<com.startapp.android.publish.StartAppAd: void showSlider(android.app.Activity)>",
       "<com.startapp.android.publish.StartAppAd: void onBackPressed()>")
 
-  private var adMethods = null
+  def isAdIdName(idName: String): Boolean = idName.contains("NativeAd")
 
   private val adClassPrefixMethodName = List(
     ("com.ltad.unions.ads", "showAd"),
