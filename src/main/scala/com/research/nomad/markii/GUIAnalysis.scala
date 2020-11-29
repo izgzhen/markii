@@ -131,7 +131,7 @@ object GUIAnalysis extends IAnalysis {
     printWriter.close()
   }
 
-  private def analyzeViewNode(viewNode: ViewNode, ownerActivities: Set[SootClass]): Unit = {
+  private def analyzeViewNode(viewNode: ViewNode): Unit = {
     viewNode.id.foreach(id => {
       AppInfo.getIdName(id) match {
         case Some(idName) =>
@@ -201,10 +201,10 @@ object GUIAnalysis extends IAnalysis {
         // NOTE: there is extra computation, but do we care?
         for ((node, children) <- aftDomain.nodeEdgeMap) {
           val ownerActivities = aftDomain.getOwnerActivities(handler, endpoint.asInstanceOf[Stmt], node)
-          analyzeViewNode(node, ownerActivities)
+          analyzeViewNode(node)
           for (child <- children) {
             writer.writeFact(FactsWriter.Fact.containsView, node.nodeID, child.nodeID)
-            analyzeViewNode(child, ownerActivities)
+            analyzeViewNode(child)
           }
         }
       }

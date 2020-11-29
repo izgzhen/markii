@@ -247,7 +247,11 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
     }
     if (m.hasActiveBody) {
       for (i <- 0 until invokeExpr.getArgCount) {
-        ret = assigned(context, stmt, Ref.LocalRef(m.getActiveBody.getParameterLocal(i)), invokeExpr.getArg(i), d, ret)
+        try {
+          ret = assigned(context, stmt, Ref.LocalRef(m.getActiveBody.getParameterLocal(i)), invokeExpr.getArg(i), d, ret)
+        } catch {
+          case _: RuntimeException =>
+        }
       }
       invokeExpr match {
         case instanceInvokeExpr: InstanceInvokeExpr =>
