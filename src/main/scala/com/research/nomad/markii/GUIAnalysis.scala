@@ -136,6 +136,9 @@ object GUIAnalysis extends IAnalysis {
       AppInfo.getIdName(id) match {
         case Some(idName) =>
           writer.writeFact(FactsWriter.Fact.idName, idName, viewNode.nodeID)
+          if (Constants.isAdIdName(idName)) {
+            writer.writeFact(FactsWriter.Fact.adViewIdName, idName)
+          }
         case None =>
       }
     })
