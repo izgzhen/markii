@@ -145,7 +145,10 @@ public abstract class AbstractJimpleBasedICFG implements BiDiInterproceduralCFG<
 
   @Override
   public boolean isExitStmt(Unit u) {
-    Body body = getBodyOf(u);
+    Body body = null;
+    while (body == null) {
+      body = getBodyOf(u);
+    }
     DirectedGraph<Unit> unitGraph = getOrCreateUnitGraph(body);
     return unitGraph.getTails().contains(u);
   }
