@@ -30,8 +30,7 @@ class AbstractValuePropIFDS(val icfg: InterproceduralCFG[soot.Unit, SootMethod])
   private val zero = zeroValue()
   val visitedMethods = new mutable.TreeSet[SootMethod]()(Ordering.by(_.toString()))
 
-  private def putUnitAbstractions(u: soot.Unit, abstraction: Domain): Unit = {
-    // TODO: record abstraction for debugging purpose
+  private def putUnitAbstractions(u: soot.Unit): Unit = {
     visitedMethods.add(interproceduralCFG.getMethodOf(u))
   }
 
@@ -42,7 +41,7 @@ class AbstractValuePropIFDS(val icfg: InterproceduralCFG[soot.Unit, SootMethod])
           case defStmt: DefinitionStmt =>
             source: Domain => {
               val s: Set[Domain] = if (source != zero) {
-                putUnitAbstractions(curr, source)
+                putUnitAbstractions(curr)
                 val (tainted, _) = source
                 if (tainted.equivTo(defStmt.getLeftOp)) {
                   Set()
@@ -76,7 +75,7 @@ class AbstractValuePropIFDS(val icfg: InterproceduralCFG[soot.Unit, SootMethod])
               destinationMethod.getSubSignature == "void run()") {
             Set(source)
           } else if (source != zero) {
-            putUnitAbstractions(callStmt, source)
+            putUnitAbstractions(callStmt)
             val (tainted, taints) = source
             if (args.contains(tainted)) {
               val paramIndex = args.indexOf(tainted)
@@ -101,7 +100,7 @@ class AbstractValuePropIFDS(val icfg: InterproceduralCFG[soot.Unit, SootMethod])
               case retStmt:ReturnStmt =>
                 source: Domain => {
                   val s: Set[Domain] = if (source != zero) {
-                    putUnitAbstractions(exitStmt, source)
+                    putUnitAbstractions(exitStmt)
                     val (tainted, taints) = source
                     if (retStmt.getOp.equivTo(tainted)) {
                       Set((defStmt.getLeftOp, taints))
