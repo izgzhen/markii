@@ -861,9 +861,9 @@ class DefaultXMLParser extends AbstractXMLParser {
       String file = getLayoutFilePath(resRoot, layoutFileName, isSys);
       if (file == null) {
 
-        Logger.warn(this.getClass().getSimpleName(),
-                "Cannot find " + layoutFileName
-                        + ".xml in " + resRoot);
+//        Logger.warn(this.getClass().getSimpleName(),
+//                "Cannot find " + layoutFileName
+//                        + ".xml in " + resRoot);
 
         continue;
       }
@@ -1296,8 +1296,8 @@ class DefaultXMLParser extends AbstractXMLParser {
       String file = getMenuFilePath(resRoot, name, isSys);
       if (file == null) {
 
-        Logger.warn(this.getClass().getSimpleName(),
-                "Unknown menu " + name + " for " + resRoot);
+//        Logger.warn(this.getClass().getSimpleName(),
+//                "Unknown menu " + name + " for " + resRoot);
 
         continue;
       }
@@ -1321,8 +1321,8 @@ class DefaultXMLParser extends AbstractXMLParser {
       viewMap.put(val, root);
       String file = getMenuFilePath(Configs.resourceLocation, name, isSys);
       if (file == null) {
-        Logger.warn(this.getClass().getSimpleName(),
-                "Unknown menu " + name + " for " + Configs.project);
+//        Logger.warn(this.getClass().getSimpleName(),
+//                "Unknown menu " + name + " for " + Configs.project);
         continue;
       }
       root.setOrigin(file);

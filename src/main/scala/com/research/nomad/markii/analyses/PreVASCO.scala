@@ -4,7 +4,7 @@
 
 package com.research.nomad.markii.analyses
 
-import com.research.nomad.markii.{CallGraphManager, Constants, DynamicCFG, FactsWriter, GUIAnalysis, Ic3Manager, PreAnalyses, Util}
+import com.research.nomad.markii.{CallGraphManager, Constants, DynamicCFG, GUIAnalysis, Ic3Manager, PreAnalyses, Util}
 import com.research.nomad.markii.dataflow.AbstractValue
 import com.research.nomad.markii.instrument.{AllInstrument, DialogCreateInstrument}
 import soot.{Local, RefType, Scene, SootClass, SootMethod}
