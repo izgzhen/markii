@@ -1,6 +1,8 @@
 MarkII
 ======
 
+[HTML version](https://dochost.me/github/izgzhen/markii/blob/master/docs/index.html)
+
 Android/Java Static Analysis Library.
 
 ## Dependency
@@ -17,7 +19,7 @@ Android/Java Static Analysis Library.
 - Input `$APK_PATH`: path to input APK file
 - Output `$OUTPUT_PATH`: path to output facts directory
 
-Supported facts (partial, see [`Fact`](https://blog.zhen-zhang.com/markii/api/com/research/nomad/markii/FactsWriter$$Fact$.html) for a complete list):
+Supported facts (partial, see [`Fact`](./docs/api/com/research/nomad/markii/FactsWriter$$Fact$.html) for a complete list):
 
 - `eventHandler(e: Event, cb: Method, v: ViewID)`
   - When event `e` is trigger on view `v`, the handler `cb` will run
@@ -31,7 +33,7 @@ Supported facts (partial, see [`Fact`](https://blog.zhen-zhang.com/markii/api/co
 
 ## Algorithms
 
-[Tutorial](https://blog.zhen-zhang.com/markii/algorithm-tutorial.html)
+[Tutorial](./docs/algorithm-tutorial.md)
 
 `SPARK` is the default call graph and pointer analysis producer for Soot.
 It is better than CHA though flow-insensitive and context-insensitive.
