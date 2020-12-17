@@ -38,9 +38,8 @@ public class AnalysisEntrypoint {
   }
 
   public void run() {
-//    Logger.stat("#Classes: " + Scene.v().getClasses().size() +
-//            ", #AppClasses: " + Scene.v().getApplicationClasses().size());
-//    Logger.trace("TIMECOST", "Start at " + System.currentTimeMillis());
+    Logger.stat("Before further applying config: #Classes: " + Scene.v().getClasses().size() +
+                     ", #AppClasses: " + Scene.v().getApplicationClasses().size());
     // Sanity check
     if (!"1".equals(System.getenv("PRODUCTION"))) {
       validate();
@@ -125,9 +124,6 @@ public class AnalysisEntrypoint {
       }
     }
 
-//    Logger.verb("DEBUG", "After loading library packages");
-    Logger.stat("#Classes: " + Scene.v().getClasses().size() +
-            ", #AppClasses: " + Scene.v().getApplicationClasses().size());
 
     // Analysis
     // TODO: use reflection to allow nice little extensions.

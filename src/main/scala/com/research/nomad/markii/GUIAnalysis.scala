@@ -46,7 +46,7 @@ object GUIAnalysis extends IAnalysis {
   private var icfg: JimpleBasedInterproceduralCFG = _
   private var vascoSolution: DataFlowSolution[soot.Unit, AFTDomain] = _
 
-  val dialogHandlerToAnalyze = mutable.Set[SootMethod]();
+  val dialogHandlerToAnalyze = mutable.Set[SootMethod]()
 
   override def run(): Unit = {
     icfg = new JimpleBasedInterproceduralCFG()
@@ -299,7 +299,7 @@ object GUIAnalysis extends IAnalysis {
     IOUtil.writeLines(Scene.v().getEntryPoints.asScala.map(_.toString).toList, "/tmp/entrypoints.txt")
     // TODO: Develop a method to debug performance issue here
     ifdsSolver.solve()
-    analyzedMethods.addAll(analysis.visitedMethods)
+    analyzedMethods.addAll(analysis.visitedMethods.asScala)
     System.out.println("======================== IFDS Solver finished ========================")
   }
 
