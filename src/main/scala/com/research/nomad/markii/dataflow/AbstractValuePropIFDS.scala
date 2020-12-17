@@ -4,7 +4,8 @@
 
 package com.research.nomad.markii.dataflow
 
-import java.util
+import java.{lang, util}
+import java.util.concurrent.ConcurrentHashMap
 
 import heros.flowfunc.{Identity, KillAll}
 import heros.{DefaultSeeds, FlowFunction, FlowFunctions, InterproceduralCFG}
@@ -13,7 +14,6 @@ import soot.jimple.toolkits.ide.DefaultJimpleIFDSTabulationProblem
 import soot.jimple.{ClassConstant, DefinitionStmt, InstanceInvokeExpr, Jimple, NewExpr, ReturnStmt, Stmt, StringConstant}
 import soot.{EquivalentValue, NullType, RefType, Scene, SootMethod, Value}
 
-import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
 /**
@@ -28,7 +28,7 @@ class AbstractValuePropIFDS(val icfg: InterproceduralCFG[soot.Unit, SootMethod])
   private val id = Identity.v[Domain]()
   private val killAll = KillAll.v[Domain]()
   private val zero = zeroValue()
-  val visitedMethods = new mutable.TreeSet[SootMethod]()(Ordering.by(_.toString()))
+  val visitedMethods: ConcurrentHashMap.KeySetView[SootMethod, lang.Boolean] = ConcurrentHashMap.newKeySet[SootMethod](100)
 
   private def putUnitAbstractions(u: soot.Unit): Unit = {
     visitedMethods.add(interproceduralCFG.getMethodOf(u))
