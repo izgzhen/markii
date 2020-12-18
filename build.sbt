@@ -34,6 +34,11 @@ libraryDependencies += "org.ow2.asm" % "asm-util" % "8.0.1"
 libraryDependencies += "org.ow2.asm" % "asm-commons" % "8.0.1"
 
 libraryDependencies += "com.google.protobuf" % "protobuf-java" % "3.4.0"
+
+// Released with FlowDroid v2.8
+libraryDependencies += "net.sf.trove4j" % "trove4j" % "3.0.3"
+libraryDependencies += "xmlpull" % "xmlpull" % "1.1.3.4d_b4_min"
+
 libraryDependencies +=
   "org.scala-lang.modules" %% "scala-parallel-collections" % "0.2.0"
 
