@@ -1,7 +1,7 @@
 MarkII
 ======
 
-[HTML version](https://dochost.me/github/izgzhen/markii/blob/master/docs/index.html)
+[HTML version](https://dochost.me/github/izgzhen/markii/blob/master/README.md)
 
 Android/Java Static Analysis Library.
 
