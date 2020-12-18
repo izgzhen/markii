@@ -79,4 +79,5 @@ Mirroring its source tree:
 
 1. Clone the repo to `$FLOWDROID_REPO`, check out v2.8 inside it, go back to this repo
 2. `cp -r ../FlowDroid/soot-infoflow/src/soot/jimple/infoflow/* src/main/java/soot/jimple/infoflow/`
-3. 
+3. `cp -r ../FlowDroid/soot-infoflow-android/src/soot/jimple/infoflow/android/* src/main/java/soot/jimple/infoflow/android/`
+4. Deleted `AXmlResourceParser`

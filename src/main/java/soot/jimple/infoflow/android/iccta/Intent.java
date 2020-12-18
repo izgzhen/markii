@@ -1,13 +1,4 @@
-/*
- * Intent.java - part of the GATOR project
- *
- * Copyright (c) 2020 The Ohio State University
- *
- * This file is distributed under the terms described in LICENSE in the
- * root directory.
- */
-
-package soot.jimple.infoflow.android.iccta;/* Created at 5/4/20 by zhen */
+package soot.jimple.infoflow.android.iccta;
 
 import java.util.*;
 
