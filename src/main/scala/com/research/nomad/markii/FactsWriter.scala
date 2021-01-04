@@ -102,6 +102,7 @@ class FactsWriter(val factDir: String) {
 
   private def argToString(arg: Any): String =
     arg match {
+      case null => "null"
       case _: Integer => arg.toString
       case method: SootMethod => StringEscapeUtils.escapeHtml4(method.getSignature)
       case clazz: SootClass => StringEscapeUtils.escapeHtml4(clazz.getName)
