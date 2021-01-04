@@ -17,7 +17,7 @@ import heros.solver.IFDSSolver
 import org.yaml.snakeyaml.Yaml
 import presto.android.gui.listener.EventType
 import presto.android.gui.wtg.util.WTGUtil
-import presto.android.{Configs, Debug, Hierarchy, MethodNames}
+import presto.android.{Configs, Debug, MethodNames}
 import presto.android.xml.AndroidView
 import soot.jimple.{InstanceInvokeExpr, Stmt, StringConstant}
 import soot.jimple.toolkits.ide.icfg.JimpleBasedInterproceduralCFG
@@ -49,15 +49,27 @@ object GUIAnalysis extends IAnalysis {
 
   val dialogHandlerToAnalyze = mutable.Set[SootMethod]()
 
-  private def appendYamlReport(key: String, value: Any): Unit = {
+  private def _appendYamlReport(content: String): Unit = {
     Files.createDirectories(Paths.get(outputPath))
     val fileWriter = if (Files.exists(Paths.get(outputPath + "/report.yaml"))) {
       new FileWriter(outputPath + "/report.yaml", true)
     } else {
       new FileWriter(outputPath + "/report.yaml")
     }
-    fileWriter.write((new Yaml()).dump(value) + "\n")
+    fileWriter.write(content + "\n")
     fileWriter.close()
+  }
+
+  private def appendYamlReport(key: String, value: Long): Unit = {
+    _appendYamlReport(s"$key: $value")
+  }
+
+  private def appendYamlReport(key: String, value: String): Unit = {
+    _appendYamlReport(s"$key: $value")
+  }
+
+  private def appendYamlReport(key: String, iterable: Iterable[String]): Unit = {
+    _appendYamlReport(key + ":\n" + iterable.map(s => "    - " + s).mkString("\n"))
   }
 
   override def run(): Unit = {
@@ -65,16 +77,17 @@ object GUIAnalysis extends IAnalysis {
 
     readConfigs() // FIXME: make it clear what data is read by this
 
+    Files.deleteIfExists(Paths.get(outputPath + "/report.yaml"))
     appendYamlReport("pre_analysis_time_seconds", Debug.v().getExecutionTime)
     appendYamlReport("soot_get_classes_size", Scene.v().getClasses().size())
     appendYamlReport("soot_get_application_classes_size", Scene.v().getApplicationClasses().size())
-    appendYamlReport("soot_get_application_classes", Scene.v().getApplicationClasses().asScala.map(_.getName).asJava)
+    appendYamlReport("soot_get_application_classes", Scene.v().getApplicationClasses().asScala.map(_.getName))
 
     Ic3Manager.init()
     AppInfo.init()
 
     appendYamlReport("hier_application_activity_classes_size", AppInfo.hier.applicationActivityClasses.size())
-    appendYamlReport("hier_application_activity_classes", AppInfo.hier.applicationActivityClasses.asScala.map(_.getName).asJava)
+    appendYamlReport("hier_application_activity_classes", AppInfo.hier.applicationActivityClasses.asScala.map(_.getName))
 
     DialogInitInstrument.run()
 
@@ -317,7 +330,7 @@ object GUIAnalysis extends IAnalysis {
     Scene.v().setEntryPoints(entrypoints.asJava)
 
     appendYamlReport("ifds_entrypoints_size", Scene.v().getEntryPoints.size())
-    appendYamlReport("ifds_entrypoints", Scene.v().getEntryPoints.asScala.map(_.getSignature).asJava)
+    appendYamlReport("ifds_entrypoints", Scene.v().getEntryPoints.asScala.map(_.getSignature))
 
     ifdsSolver.solve()
     analyzedMethods.addAll(analysis.visitedMethods.asScala)
