@@ -8,6 +8,7 @@
  */
 package presto.android;
 
+import org.apache.commons.lang3.ArrayUtils;
 import org.junit.Assert;
 import presto.android.Configs.AsyncOpStrategy;
 import presto.android.Configs.TestGenStrategy;
@@ -21,6 +22,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -198,23 +200,32 @@ public class Main {
     // Setup an artificial phase to call into our analysis entrypoint. We can
     // run it with or without call graph construction (CHA is chosen here).
 
+    ArrayList<String> excludedArgs = new ArrayList<>();
+    for (String pattern : Configs.libraryPackages) {
+      assert pattern.endsWith(".*");
+      excludedArgs.add("-x");
+      excludedArgs.add(pattern.replace(".*", ""));
+    }
+
     String packName = "wjtp";
     String phaseName = "wjtp.gui";
     String[] sootArgs = {
             "-w",
-            "-p", "cg", "all-reachable:true",
+            // "-p", "cg", "all-reachable:true",
             "-p", "cg.spark", "enabled:true",
             "-p", phaseName, "enabled:true",
             "-f", "n",
             "-keep-line-number",
             "-process-multiple-dex",
+//            "-no-bodies-for-excluded",
             "-allow-phantom-refs",
             "-process-dir", Configs.bytecodes,
-            "-cp", classpath,
+            "-cp", classpath
     };
     readWidgetMap();
     PrerunEntrypoint.v().run();
-    setupAndInvokeSootHelper(packName, phaseName, sootArgs);
+    setupAndInvokeSootHelper(packName, phaseName,
+            ArrayUtils.addAll(sootArgs, excludedArgs.toArray(new String[0])));
   }
 
   /**

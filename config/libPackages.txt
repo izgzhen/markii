@@ -2194,3 +2194,6 @@ com.visa.*
 com.tonyodev.*
 com.mastercard.*
 com.appsflyer.*
+com.chase.*
+com.matthewtamlin.*
+com.gpshopper.*
