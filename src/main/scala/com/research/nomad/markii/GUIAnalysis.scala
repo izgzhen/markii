@@ -4,7 +4,8 @@
 
 package com.research.nomad.markii
 
-import java.io.PrintWriter
+import java.io.{FileWriter, PrintWriter}
+import java.nio.file.{Files, Paths}
 
 import com.research.nomad.markii.analyses.PreVASCO
 import com.research.nomad.markii.dataflow.AbsNode.ViewNode
@@ -13,10 +14,10 @@ import com.research.nomad.markii.dataflow.{AFTDomain, AbsAttr, AbsNode, AbsValSe
 import com.research.nomad.markii.instrument.{AllInstrument, DialogCreateInstrument, DialogInitInstrument}
 import heros.InterproceduralCFG
 import heros.solver.IFDSSolver
-import io.github.izgzhen.msbase.IOUtil
+import org.yaml.snakeyaml.Yaml
 import presto.android.gui.listener.EventType
 import presto.android.gui.wtg.util.WTGUtil
-import presto.android.{Configs, Debug, MethodNames}
+import presto.android.{Configs, Debug, Hierarchy, MethodNames}
 import presto.android.xml.AndroidView
 import soot.jimple.{InstanceInvokeExpr, Stmt, StringConstant}
 import soot.jimple.toolkits.ide.icfg.JimpleBasedInterproceduralCFG
@@ -48,13 +49,32 @@ object GUIAnalysis extends IAnalysis {
 
   val dialogHandlerToAnalyze = mutable.Set[SootMethod]()
 
+  private def appendYamlReport(key: String, value: Any): Unit = {
+    Files.createDirectories(Paths.get(outputPath))
+    val fileWriter = if (Files.exists(Paths.get(outputPath + "/report.yaml"))) {
+      new FileWriter(outputPath + "/report.yaml", true)
+    } else {
+      new FileWriter(outputPath + "/report.yaml")
+    }
+    fileWriter.write((new Yaml()).dump(value) + "\n")
+    fileWriter.close()
+  }
+
   override def run(): Unit = {
     icfg = new JimpleBasedInterproceduralCFG()
-    println("Pre-analysis time: " + Debug.v().getExecutionTime + " seconds")
-    println("Mark II")
-    readConfigs()
+
+    readConfigs() // FIXME: make it clear what data is read by this
+
+    appendYamlReport("pre_analysis_time_seconds", Debug.v().getExecutionTime)
+    appendYamlReport("soot_get_classes_size", Scene.v().getClasses().size())
+    appendYamlReport("soot_get_application_classes_size", Scene.v().getApplicationClasses().size())
+    appendYamlReport("soot_get_application_classes", Scene.v().getApplicationClasses().asScala.map(_.getName).asJava)
+
     Ic3Manager.init()
     AppInfo.init()
+
+    appendYamlReport("hier_application_activity_classes_size", AppInfo.hier.applicationActivityClasses.size())
+    appendYamlReport("hier_application_activity_classes", AppInfo.hier.applicationActivityClasses.asScala.map(_.getName).asJava)
 
     DialogInitInstrument.run()
 
@@ -295,9 +315,10 @@ object GUIAnalysis extends IAnalysis {
       Constants.isActivity(c) || Constants.isService(c) || Constants.isReceiver(c)
     })
     Scene.v().setEntryPoints(entrypoints.asJava)
-    System.out.println("======================= IFDS Entry-points " + Scene.v().getEntryPoints.size() + " =======================")
-    IOUtil.writeLines(Scene.v().getEntryPoints.asScala.map(_.toString).toList, "/tmp/entrypoints.txt")
-    // TODO: Develop a method to debug performance issue here
+
+    appendYamlReport("ifds_entrypoints_size", Scene.v().getEntryPoints.size())
+    appendYamlReport("ifds_entrypoints", Scene.v().getEntryPoints.asScala.map(_.getSignature).asJava)
+
     ifdsSolver.solve()
     analyzedMethods.addAll(analysis.visitedMethods.asScala)
     System.out.println("======================== IFDS Solver finished ========================")

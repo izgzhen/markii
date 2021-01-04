@@ -7,6 +7,7 @@ package com.research.nomad.markii.dataflow
 import java.{lang, util}
 import java.util.concurrent.ConcurrentHashMap
 
+import com.research.nomad.markii.GUIAnalysis
 import heros.flowfunc.{Identity, KillAll}
 import heros.{DefaultSeeds, FlowFunction, FlowFunctions, InterproceduralCFG}
 import soot.jimple.internal.JimpleLocal
@@ -31,7 +32,10 @@ class AbstractValuePropIFDS(val icfg: InterproceduralCFG[soot.Unit, SootMethod])
   val visitedMethods: ConcurrentHashMap.KeySetView[SootMethod, lang.Boolean] = ConcurrentHashMap.newKeySet[SootMethod](100)
 
   private def putUnitAbstractions(u: soot.Unit): Unit = {
-    visitedMethods.add(interproceduralCFG.getMethodOf(u))
+    val method = interproceduralCFG.getMethodOf(u)
+    if (GUIAnalysis.isDebugMode)
+      println(s"putUnitAbstractions: $method")
+    visitedMethods.add(method)
   }
 
   override def createFlowFunctionsFactory(): FlowFunctions[soot.Unit, Domain, SootMethod] =
