@@ -2,6 +2,7 @@ import csv
 import sys
 import os
 import difflib
+import glob
 
 def is_int(s):
     try:
@@ -33,9 +34,10 @@ if __name__ == "__main__":
     facts_dir_1 = sys.argv[1]
     facts_dir_2 = sys.argv[2]
 
-    assert_eq_set(set(os.listdir(facts_dir_1)), set(os.listdir(facts_dir_2)))
+    assert_eq_set(set(glob.glob(facts_dir_1 + "/*.fact")), set(glob.glob(facts_dir_2 + "/*.fact")))
 
-    for filename in os.listdir(facts_dir_1):
+    for f in glob.glob(facts_dir_1 + "/*.fact"):
+        filename = os.path.basename(f)
         f1 = os.path.join(facts_dir_1, filename)
         f2 = os.path.join(facts_dir_2, filename)
         rows_1 = sorted(read_rows_of_compared_columns(f1))

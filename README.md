@@ -17,7 +17,8 @@ Android/Java Static Analysis Library.
 ```
 
 - Input `$APK_PATH`: path to input APK file
-- Output `$OUTPUT_PATH`: path to output facts directory
+- Output `$OUTPUT_PATH`: path to output directory
+  * This directory will contain all `*.fact` output as well as other supporting files if any.
 
 Supported facts (partial, see [`Fact`](./docs/api/com/research/nomad/markii/FactsWriter$$Fact$.html) for a complete list):
 

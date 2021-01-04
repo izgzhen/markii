@@ -1,6 +1,6 @@
 # Developer Guide
 
-- Recommended IDE: IntelliJ IDEA
+- The recommended IDE: IntelliJ IDEA
 
 ## Basic Setup in IntelliJ IDEA
 
@@ -57,6 +57,16 @@ With `-clientParam debugMode:true`, the program will dump the following extra th
 - Run with "CPU Profiling" in IDEA
 - Investigate: Are all analysis necessary?
 
+### Performance analysis
+
+Main stages:
+
+* Pre-analysis
+* MarkII IFDS analysis
+* MarkII VASCO analysis
+
+Many related statistics are recorded at `$OUTPUT_DIR/report.yaml` (works in both debug and non-debug mode, and it is
+updated even if the program exits half-way).
 
 ## Libraries & Papers
 
