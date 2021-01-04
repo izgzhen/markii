@@ -211,13 +211,14 @@ public class Main {
     String phaseName = "wjtp.gui";
     String[] sootArgs = {
             "-w",
+            // NOTE(Zhen): Seems needlessly slowing things down
             // "-p", "cg", "all-reachable:true",
             "-p", "cg.spark", "enabled:true",
             "-p", phaseName, "enabled:true",
             "-f", "n",
             "-keep-line-number",
             "-process-multiple-dex",
-//            "-no-bodies-for-excluded",
+            "-no-bodies-for-excluded",
             "-allow-phantom-refs",
             "-process-dir", Configs.bytecodes,
             "-cp", classpath

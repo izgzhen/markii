@@ -14,7 +14,6 @@ import com.research.nomad.markii.dataflow.{AFTDomain, AbsAttr, AbsNode, AbsValSe
 import com.research.nomad.markii.instrument.{AllInstrument, DialogCreateInstrument, DialogInitInstrument}
 import heros.InterproceduralCFG
 import heros.solver.IFDSSolver
-import org.yaml.snakeyaml.Yaml
 import presto.android.gui.listener.EventType
 import presto.android.gui.wtg.util.WTGUtil
 import presto.android.{Configs, Debug, MethodNames}
@@ -98,6 +97,8 @@ object GUIAnalysis extends IAnalysis {
 
     // IFDS must run before VASCO since VASCO depends on IFDS as pre-analysis
     runIFDS()
+
+    initializeMethodMap()
 
     DialogCreateInstrument.run(AppInfo.allActivities)
 
@@ -227,7 +228,22 @@ object GUIAnalysis extends IAnalysis {
     }
   }
 
-  def getMethodOf(stmt: Stmt): SootMethod = icfg.getMethodOf(stmt)
+  private val unitToMethodMap: mutable.Map[soot.Unit, SootMethod] = mutable.Map[soot.Unit, SootMethod]()
+  private def initializeMethodMap(): Unit = {
+    for (c <- Scene.v().getClasses.asScala) {
+      for (m <- c.getMethods.asScala) {
+        if (m.hasActiveBody) {
+          for (u <- m.getActiveBody.getUnits.asScala) {
+            unitToMethodMap.addOne(u, m)
+          }
+        }
+      }
+    }
+  }
+
+  def getMethodOf(stmt: Stmt): SootMethod = {
+    unitToMethodMap(stmt)
+  }
 
   private def analyzeActivityHandlerPostVasco(handler: SootMethod): Unit = {
     for (endpoint <- icfg.getEndPointsOf(handler).asScala) {
