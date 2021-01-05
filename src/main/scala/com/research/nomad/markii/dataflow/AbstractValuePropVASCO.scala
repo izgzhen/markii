@@ -9,7 +9,7 @@ import java.time.Instant
 import com.research.nomad.markii.Util.getJavaLineNumber
 import com.research.nomad.markii.analyses.PreVASCO
 import com.research.nomad.markii.dataflow.AbsNode.{ActNode, ListenerNode, ViewNode}
-import com.research.nomad.markii.{AppInfo, Constants, DynamicCFG, Core, Util}
+import com.research.nomad.markii.{AppInfo, Constants, ControlFlowGraphManager, Core, Util}
 import io.github.izgzhen.msbase.{IOUtil, JsonUtil}
 import presto.android.gui.listener.EventType
 
@@ -375,7 +375,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
     }).filter(m => m != null && m.isConcrete && m.hasActiveBody)
     for (handler <- handlers) {
       for (dialogNode <- d.getOwnerDialogs(context.getMethod, stmt, viewBase)) {
-        DynamicCFG.addViewHandlerToEventLoopDialog(dialogNode, handler) match {
+        ControlFlowGraphManager.addViewHandlerToEventLoopDialog(dialogNode, handler) match {
           case Some((runner, invocation)) =>
             aftProgramRepresentation.refreshCFGcache(runner)
             val callers = getCallers(context)
@@ -394,7 +394,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
         // FIXME: continueButton has no owner activities
         // FIXME: adding handler invocation might make some context missing nodes when joining over feasible
         //        paths
-        DynamicCFG.addViewHandlerToEventLoopAct(ownerActivity, handler) match {
+        ControlFlowGraphManager.addViewHandlerToEventLoopAct(ownerActivity, handler) match {
           case Some((runner, invocation)) =>
             aftProgramRepresentation.refreshCFGcache(runner)
             for (runnerContext <- getContexts(runner).asScala) {
@@ -417,7 +417,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
                       eventType: EventType, viewNode: ViewNode, sourceLoc: SourceLoc): AFTDomain = {
     // FIXME: windowClass vs Activity? Maybe we can unify them?....since the virtual/fake method contains the constructed
     //  instance for all em'
-    DynamicCFG.addViewHandlerToEventLoopAct(windowClass, handler) match {
+    ControlFlowGraphManager.addViewHandlerToEventLoopAct(windowClass, handler) match {
       case Some((runner, invocation)) =>
         aftProgramRepresentation.refreshCFGcache(runner)
         for (runnerContext <- getContexts(runner).asScala) {

@@ -23,7 +23,7 @@ import scala.jdk.CollectionConverters._
  * FIXME: Current implementation is very hard to understand.
  * FIXME: Comb through its relationship with CallGraphManager
  */
-object DynamicCFG {
+object ControlFlowGraphManager {
   private var utilsBaseClass: SootClass = null
   def getUtilsBaseClass: SootClass = {
     if (utilsBaseClass == null) {
@@ -351,7 +351,7 @@ object DynamicCFG {
 
   private def addHandlerToEventLoopAct(ownerActivity: SootClass, handler: SootMethod,
                                        createInvocation: Runner => Stmt): Option[(SootMethod, Stmt, Boolean)] = {
-    DynamicCFG.getRunner(ownerActivity) match {
+    ControlFlowGraphManager.getRunner(ownerActivity) match {
       case Some(runner) =>
         var changed = false
         if (!addedHandlers.contains(ownerActivity)) {
@@ -369,7 +369,7 @@ object DynamicCFG {
   private def addHandlerToEventLoopDialog(ownerDialog: ViewNode, handler: SootMethod,
                                           createInvocation: Runner => Stmt): Option[(SootMethod, Stmt, Boolean)] = {
     val defStmt = ownerDialog.allocSite
-    DynamicCFG.getRunnerOfDialog(defStmt) match {
+    ControlFlowGraphManager.getRunnerOfDialog(defStmt) match {
       case Some(runner) =>
         var changed = false
         if (!addedHandlersDialog.contains(defStmt)) {

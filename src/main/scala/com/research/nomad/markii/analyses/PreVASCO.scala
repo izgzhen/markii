@@ -4,7 +4,7 @@
 
 package com.research.nomad.markii.analyses
 
-import com.research.nomad.markii.{CallGraphManager, Constants, DynamicCFG, Core, Ic3Manager, PreAnalyses, Util}
+import com.research.nomad.markii.{CallGraphManager, Constants, ControlFlowGraphManager, Core, Ic3Manager, PreAnalyses, Util}
 import com.research.nomad.markii.dataflow.AbstractValue
 import com.research.nomad.markii.instrument.{AllInstrument, DialogCreateInstrument}
 import soot.{Local, RefType, Scene, SootClass, SootMethod}
@@ -44,7 +44,7 @@ object PreVASCO {
                     // FIXME: imprecision if we ignore the actions etc. fields?
                     val methods = mutable.Set[SootMethod]()
                     for (target <- intent.targets) {
-                      DynamicCFG.getRunner(target) match {
+                      ControlFlowGraphManager.getRunner(target) match {
                         case Some(runner) => methods.add(runner.method)
                         case None =>
                       }
@@ -53,7 +53,7 @@ object PreVASCO {
                       }
                     }
                     val base = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.getType.asInstanceOf[RefType].getSootClass
-                    val runAllMethod = DynamicCFG.getRunAll(stmt, methods, base, invokedMethod)
+                    val runAllMethod = ControlFlowGraphManager.getRunAll(stmt, methods, base, invokedMethod)
                     Scene.v().getCallGraph.removeAllEdgesOutOf(stmt)
                     Scene.v().getCallGraph.addEdge(new Edge(reached, stmt, runAllMethod))
                     // NOTE: no invocation/stmt swap
@@ -71,14 +71,14 @@ object PreVASCO {
                 val dialogBase = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.asInstanceOf[Local]
                 val methods = mutable.Set[SootMethod]()
                 for (defStmt <- PreAnalyses.getDefsOfAt(reached, dialogBase, stmt)) {
-                  DynamicCFG.getRunnerOfDialog(defStmt) match {
+                  ControlFlowGraphManager.getRunnerOfDialog(defStmt) match {
                     case Some(runner) => methods.add(runner.method)
                     case None =>
                   }
                 }
                 if (methods.nonEmpty) {
                   // FIXME: I need to build a static class for this type of work
-                  val runAllMethod = DynamicCFG.getRunAllDialog(stmt, methods, reached)
+                  val runAllMethod = ControlFlowGraphManager.getRunAllDialog(stmt, methods, reached)
                   val invocation = Jimple.v().newInvokeStmt(Jimple.v().newStaticInvokeExpr(runAllMethod.makeRef(), dialogBase))
                   Scene.v().getCallGraph.removeAllEdgesOutOf(stmt)
                   Scene.v().getCallGraph.addEdge(new Edge(reached, invocation, runAllMethod))
@@ -92,7 +92,7 @@ object PreVASCO {
                   case intConstant: IntConstant =>
                     DialogCreateInstrument.getShowInvocationOfCreateDialog(reached, intConstant.value) match {
                       case Some(createMethod) =>
-                        DynamicCFG.getRunnerOfDialog(reached.getDeclaringClass, createMethod, intConstant) match {
+                        ControlFlowGraphManager.getRunnerOfDialog(reached.getDeclaringClass, createMethod, intConstant) match {
                           case Some((runner, internalInvocation)) =>
                             val invocation = Jimple.v().newInvokeStmt(Jimple.v().newVirtualInvokeExpr(reached.getActiveBody.getThisLocal, runner.method.makeRef()))
                             CallGraphManager.updateCall(reached, stmt, invocation, runner.method, Some(handler))
