@@ -4,13 +4,14 @@
 
 package com.research.nomad.markii.instrument
 
+import com.research.nomad.markii.Core
 import soot.{Body, SootClass, SootMethod}
 import soot.jimple.{EqExpr, IfStmt, IntConstant, JimpleBody, LookupSwitchStmt, Stmt}
 
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
-object DialogCreateInstrument {
+class DialogCreateInstrument(core: Core) {
   private val showCreateDialog = mutable.Map[SootClass, mutable.Map[Int, SootMethod]]()
 
   private def getIfTarget(method: SootMethod, i: Int): Stmt = {
@@ -98,6 +99,7 @@ object DialogCreateInstrument {
             pruneFirstLookupSwitchExcept(newMethod, value.value)
             activity.addMethod(newMethod)
             showCreateDialog.getOrElseUpdate(activity, mutable.Map()).put(value.value, newMethod)
+            core.controlFlowGraphManager.addToMethodMap(newMethod)
           }
           return
         case ifStmt: IfStmt =>
@@ -110,6 +112,7 @@ object DialogCreateInstrument {
                 pruneIfExcept(newMethod, i)
                 activity.addMethod(newMethod)
                 showCreateDialog.getOrElseUpdate(activity, mutable.Map()).put(i, newMethod)
+                core.controlFlowGraphManager.addToMethodMap(newMethod)
               }
             case _ =>
           }

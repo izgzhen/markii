@@ -25,6 +25,10 @@ import scala.jdk.CollectionConverters._
  */
 class ControlFlowGraphManager(appInfo: AppInfo) {
   private var utilsBaseClass: SootClass = null
+  private val unitToMethodMap: mutable.Map[soot.Unit, SootMethod] = initializeMethodMap()
+  def getMethodOf(stmt: Stmt): SootMethod =
+    unitToMethodMap(stmt)
+
   def getUtilsBaseClass: SootClass = {
     if (utilsBaseClass == null) {
       utilsBaseClass = new SootClass("markii.Utils", Modifier.PUBLIC)
@@ -60,6 +64,7 @@ class ControlFlowGraphManager(appInfo: AppInfo) {
       val returnStmt = Jimple.v().newReturnVoidStmt()
       units.add(returnStmt)
 
+      addToMethodMap(method)
       dialogFragmentRunners.put(baseClass, method)
     }
     dialogFragmentRunners.get(baseClass)
@@ -91,6 +96,7 @@ class ControlFlowGraphManager(appInfo: AppInfo) {
       val gotoStmt = Jimple.v().newGotoStmt(loopExit)
       units.add(gotoStmt)
 
+      addToMethodMap(method)
       dialogCreateRunners.put(createMethod, (Runner(method, loopExit, dialogLocal), defStmt))
     }
     dialogCreateRunners.get(createMethod)
@@ -104,7 +110,7 @@ class ControlFlowGraphManager(appInfo: AppInfo) {
       }
       if (rhsTypeOption.isEmpty) return None
       val rhsType = rhsTypeOption.get
-      val method = new SootMethod("_run_dialog_s" + appInfo.stmtId(defStmt),
+      val method = new SootMethod("_run_dialog_s" + stmtId(defStmt),
         List(rhsType).asJava, VoidType.v, Modifier.PUBLIC | Modifier.STATIC)
       getUtilsBaseClass.addMethod(method)
       val body = Jimple.v().newBody(method)
@@ -120,6 +126,7 @@ class ControlFlowGraphManager(appInfo: AppInfo) {
       val gotoStmt = Jimple.v().newGotoStmt(loopExit)
       units.add(gotoStmt)
 
+      addToMethodMap(method)
       dialogRunners.put(defStmt, Runner(method, loopExit, dialogLocal))
     }
     Some(dialogRunners(defStmt))
@@ -171,6 +178,7 @@ class ControlFlowGraphManager(appInfo: AppInfo) {
       val gotoStmt = Jimple.v().newGotoStmt(loopExit)
       units.add(gotoStmt)
 
+      addToMethodMap(method)
       runners.put(activity, Runner(method, loopExit, thisLocal))
     }
     Some(runners(activity))
@@ -188,7 +196,7 @@ class ControlFlowGraphManager(appInfo: AppInfo) {
   def getRunAllDialog(stmt: Stmt, methods: Iterable[SootMethod], ctxMethod: SootMethod): SootMethod = {
     if (!runAllMethods.contains(stmt)) {
       val base = stmt.getInvokeExpr.asInstanceOf[InstanceInvokeExpr].getBase
-      val runAllMethod = new SootMethod("_run_s" + appInfo.stmtId(stmt),
+      val runAllMethod = new SootMethod("_run_s" + stmtId(stmt),
         List(base.getType).asJava, VoidType.v, Modifier.PUBLIC | Modifier.STATIC)
       getUtilsBaseClass.addMethod(runAllMethod)
       val body = Jimple.v().newBody(runAllMethod)
@@ -223,6 +231,7 @@ class ControlFlowGraphManager(appInfo: AppInfo) {
       units.add(loopExit)
       units.add(gotoStmt)
 
+      addToMethodMap(runAllMethod)
       runAllMethods.put(stmt, runAllMethod)
     }
     runAllMethods(stmt)
@@ -230,7 +239,7 @@ class ControlFlowGraphManager(appInfo: AppInfo) {
 
   def getRunAll(stmt: Stmt, methods: Iterable[SootMethod], baseClass: SootClass, replaced: SootMethod): SootMethod = {
     if (!runAllMethods.contains(stmt)) {
-      val runAllMethod = new SootMethod("_run_s" + appInfo.stmtId(stmt),
+      val runAllMethod = new SootMethod("_run_s" + stmtId(stmt),
         replaced.getParameterTypes, VoidType.v, Modifier.PUBLIC)
       baseClass.addMethod(runAllMethod)
       val body = Jimple.v().newBody(runAllMethod)
@@ -270,6 +279,7 @@ class ControlFlowGraphManager(appInfo: AppInfo) {
       units.add(loopExit)
       units.add(gotoStmt)
 
+      addToMethodMap(runAllMethod)
       runAllMethods.put(stmt, runAllMethod)
     }
     runAllMethods(stmt)
@@ -382,6 +392,47 @@ class ControlFlowGraphManager(appInfo: AppInfo) {
         }
         Some((runner.method, addedHandlersDialog(defStmt)(handler), changed))
       case None => None
+    }
+  }
+
+  private def initializeMethodMap(): mutable.Map[soot.Unit, SootMethod] = {
+    val map = mutable.Map[soot.Unit, SootMethod]()
+    for (c <- Scene.v().getClasses.asScala) {
+      for (m <- c.getMethods.asScala) {
+        if (m.hasActiveBody) {
+          for (u <- m.getActiveBody.getUnits.asScala) {
+            map.addOne(u, m)
+          }
+        }
+      }
+    }
+    map
+  }
+
+  def addToMethodMap(method: SootMethod): Unit = {
+    for (u <- method.getActiveBody.getUnits.asScala) {
+      unitToMethodMap.addOne(u, method)
+    }
+  }
+
+  private val stmtOffsets: mutable.Map[SootMethod, Map[Stmt, Int]] = mutable.Map()
+  def stmtOffset(method: SootMethod, stmt: Stmt): Int = {
+    if (!stmtOffsets.contains(method)) {
+      stmtOffsets.put(method, method.getActiveBody.getUnits.iterator().asScala.map(_.asInstanceOf[Stmt]).toList.zipWithIndex.toMap)
+    }
+    stmtOffsets(method)(stmt)
+  }
+
+  private val stmtIds: mutable.Map[Stmt, Int] = mutable.Map()
+  def stmtId(stmt: Stmt): Int = {
+    if (stmtIds.contains(stmt)) {
+      stmtIds(stmt)
+    } else {
+      val m = getMethodOf(stmt)
+      assert (m != null, stmt)
+      val i = m.getSignature.hashCode ^ stmtOffset(m, stmt) + 1
+      stmtIds.put(stmt, i)
+      i
     }
   }
 }
