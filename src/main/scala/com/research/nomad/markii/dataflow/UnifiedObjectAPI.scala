@@ -4,7 +4,7 @@
 
 package com.research.nomad.markii.dataflow
 
-import com.research.nomad.markii.AppInfo
+import com.research.nomad.markii.Globals
 import com.research.nomad.markii.dataflow.AbsNode.UnifiedObjectNode
 import soot.{RefType, Scene, SootClass}
 import soot.jimple.{ClassConstant, InstanceInvokeExpr}
@@ -21,7 +21,7 @@ object UnifiedObjectAPI {
   def getAbsName(sootClass: SootClass): Option[String] = {
     for ((baseClassName, absName) <- absNames) {
       val baseClass = Scene.v.getSootClass(baseClassName)
-      if (AppInfo.hier.isSubclassOf(sootClass, baseClass)) {
+      if (Globals.appInfo.hier.isSubclassOf(sootClass, baseClass)) {
         return Some(absName)
       }
     }

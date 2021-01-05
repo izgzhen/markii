@@ -12,20 +12,40 @@ import soot.jimple.toolkits.callgraph.Edge
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
-object CallGraphManager {
-  val extraEdgeOutMap: mutable.Map[SootMethod, mutable.Set[SootMethod]] = mutable.Map()
-  private var methodTargets: Map[SootMethod, Set[SootMethod]] = Map()
+/**
+ * Make CallGraph Great Again!
+ *
+ * This (should) wraps over any call-graph related API in soot.
+ */
+class CallGraphManager(appInfo: AppInfo) {
+  // Constructor:
+  patchCallGraph()
+  private val methodTargets: Map[SootMethod, Set[SootMethod]] = Scene.v().getCallGraph.sourceMethods().asScala.map(src => (src.method(), Scene.v().getCallGraph.edgesOutOf(src).asScala.map(_.getTgt.method()).toSet)).toMap
+
+  def reachableMethods(m: SootMethod): Set[SootMethod] = {
+    _reachableMethods(m).union(Set(m))
+  }
+
+  def updateCall(src: SootMethod, oldStmt: Stmt, newStmt: Stmt,
+                 target: SootMethod, srcContext: Option[SootMethod] = None): Unit = {
+    Scene.v().getCallGraph.removeAllEdgesOutOf(oldStmt)
+    Scene.v().getCallGraph.addEdge(new Edge(src, newStmt, target))
+    methodAndReachables.getOrElseUpdate(src, mutable.Set()).add(target)
+    srcContext match {
+      case Some(contextMethod) =>
+        methodAndReachables.getOrElseUpdate(contextMethod, mutable.Set()).add(target)
+      case None =>
+    }
+  }
+
+  private val extraEdgeOutMap: mutable.Map[SootMethod, mutable.Set[SootMethod]] = mutable.Map()
   private val methodAndReachables = mutable.Map[SootMethod, mutable.Set[SootMethod]]()
 
-  def saveOldCallGraph(): Unit = {
-    methodTargets =
-      Scene.v().getCallGraph.sourceMethods().asScala.map(src => (src.method(), Scene.v().getCallGraph.edgesOutOf(src).asScala.map(_.getTgt.method()).toSet)).toMap
-  }
   private def isTargetMethod(target: SootMethod): Boolean =
     target.isConcrete && target.hasActiveBody && target.getDeclaringClass.isApplicationClass &&
       (!Configs.isLibraryClass(target.getDeclaringClass.getName))
 
-  def patchCallGraph(): Unit = {
+  private def patchCallGraph(): Unit = {
     for (c <- Scene.v().getApplicationClasses.asScala) {
       for (m <- c.getMethods.asScala) {
         if (m.isConcrete && m.hasActiveBody) {
@@ -42,15 +62,15 @@ object CallGraphManager {
                     case instanceInvokeExpr: InstanceInvokeExpr =>
                       instanceInvokeExpr.getBase.getType match {
                         case refType: RefType if refType.getSootClass.isConcrete =>
-                          val dispatchedTarget = AppInfo.hier.virtualDispatch(invokedTarget, refType.getSootClass)
+                          val dispatchedTarget = appInfo.hier.virtualDispatch(invokedTarget, refType.getSootClass)
                           if (dispatchedTarget != null && isTargetMethod(dispatchedTarget)) {
                             dispatchedTargets.add(dispatchedTarget)
                           } else {
-                            val subTypes = AppInfo.hier.getConcreteSubtypes(refType.getSootClass).asScala
+                            val subTypes = appInfo.hier.getConcreteSubtypes(refType.getSootClass).asScala
                             if (subTypes.size < 5) { // FIXME: avoid over-explosion....
                               for (subClass <- subTypes) {
                                 if (subClass != null && subClass.isConcrete) {
-                                  val dispatchedTarget = AppInfo.hier.virtualDispatch(invokedTarget, subClass)
+                                  val dispatchedTarget = appInfo.hier.virtualDispatch(invokedTarget, subClass)
                                   if (dispatchedTarget != null) {
                                     dispatchedTargets.add(dispatchedTarget)
                                   }
@@ -79,7 +99,7 @@ object CallGraphManager {
                 if (target.getSignature == "<android.os.Handler: boolean postDelayed(java.lang.Runnable,long)>") {
                   val runnableType = stmt.getInvokeExpr.getArg(0).getType.asInstanceOf[RefType]
                   if (runnableType.getSootClass.isConcrete) {
-                    val run = AppInfo.hier.virtualDispatch(Scene.v().getMethod("<java.lang.Runnable: void run()>"), runnableType.getSootClass)
+                    val run = appInfo.hier.virtualDispatch(Scene.v().getMethod("<java.lang.Runnable: void run()>"), runnableType.getSootClass)
                     if (run != null) {
                       extraEdgeOutMap.getOrElseUpdate(m, mutable.Set()).add(run)
                     } else {
@@ -95,11 +115,7 @@ object CallGraphManager {
     }
   }
 
-  def reachableMethods(m: SootMethod): Set[SootMethod] = {
-    reachableMethods1(m).union(Set(m))
-  }
-
-  def reachableMethods1(m: SootMethod): Set[SootMethod] = {
+  private def _reachableMethods(m: SootMethod): Set[SootMethod] = {
     methodAndReachables.get(m) match {
       case Some(s) => return s.toSet
       case None =>
@@ -133,21 +149,5 @@ object CallGraphManager {
       }
     }
     reachables.toSet
-  }
-
-  def updateCall(src: SootMethod, oldStmt: Stmt, newStmt: Stmt,
-                 target: SootMethod, srcContext: Option[SootMethod] = None): Unit = {
-    Scene.v().getCallGraph.removeAllEdgesOutOf(oldStmt)
-    Scene.v().getCallGraph.addEdge(new Edge(src, newStmt, target))
-    methodAndReachables.getOrElseUpdate(src, mutable.Set()).add(target)
-    srcContext match {
-      case Some(contextMethod) =>
-        methodAndReachables.getOrElseUpdate(contextMethod, mutable.Set()).add(target)
-      case None =>
-    }
-  }
-
-  def getCallees(methodSig: String): List[SootMethod] = {
-    Scene.v.getCallGraph.edgesOutOf(Scene.v.getMethod(methodSig)).asScala.map(_.getTgt.method).toList
   }
 }

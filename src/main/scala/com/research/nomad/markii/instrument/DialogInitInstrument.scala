@@ -4,7 +4,7 @@
 
 package com.research.nomad.markii.instrument
 
-import com.research.nomad.markii.{AppInfo, Constants, Util}
+import com.research.nomad.markii.{AppInfo, Constants, Core, Util}
 import presto.android.MethodNames
 import soot.{Local, RefType, Scene, SootMethod}
 import soot.jimple.{InstanceInvokeExpr, Jimple, NullConstant, Stmt}
@@ -12,7 +12,7 @@ import soot.jimple.toolkits.callgraph.Edge
 
 import scala.jdk.CollectionConverters._
 
-object DialogInitInstrument {
+class DialogInitInstrument(core: Core) {
   def run(): Unit = {
     for (c <- Scene.v.getApplicationClasses.asScala) {
       val methods = c.getMethods.asScala.toList
@@ -26,8 +26,8 @@ object DialogInitInstrument {
                   case instanceInvokeExpr: InstanceInvokeExpr if invoked.getName == "<init>" =>
                     val baseClass = instanceInvokeExpr.getBase.getType.asInstanceOf[RefType].getSootClass
                     if (baseClass.isConcrete) {
-                      val onCreate = AppInfo.hier.virtualDispatch(MethodNames.onDialogCreateSubSig, baseClass)
-                      if (Constants.isDialogClass(baseClass) && onCreate != null && onCreate.isConcrete && onCreate.hasActiveBody) {
+                      val onCreate = core.appInfo.hier.virtualDispatch(MethodNames.onDialogCreateSubSig, baseClass)
+                      if (core.appInfo.isDialogClass(baseClass) && onCreate != null && onCreate.isConcrete && onCreate.hasActiveBody) {
                         Some((stmt, instanceInvokeExpr.getBase.asInstanceOf[Local], onCreate))
                       } else {
                         None

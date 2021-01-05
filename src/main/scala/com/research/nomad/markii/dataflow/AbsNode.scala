@@ -4,7 +4,7 @@
 
 package com.research.nomad.markii.dataflow
 
-import com.research.nomad.markii.Util
+import com.research.nomad.markii.{Globals, Util}
 import com.research.nomad.markii.dataflow.AbsNode.AnyNode
 import presto.android.gui.listener.EventType
 import presto.android.xml.{AndroidView, MethodInfo}
@@ -47,7 +47,7 @@ object AbsNode {
 
     // We want this ID to be deterministic across runs..
     val nodeID: Int = {
-      var hashCode = Util.stmtId(allocSite)
+      var hashCode = Globals.appInfo.stmtId(allocSite)
       for (i <- id) {
         hashCode ^= i
       }

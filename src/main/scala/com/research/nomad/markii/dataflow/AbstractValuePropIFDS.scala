@@ -20,11 +20,9 @@ import scala.jdk.CollectionConverters._
 /**
  * Implementation of abstract value propagation for IFDS DFA framework. Currently only implements:
  * - Simple intent analysis
- *
- * @param icfg: interprocedural control-flow graph
  */
-class AbstractValuePropIFDS(val icfg: InterproceduralCFG[soot.Unit, SootMethod])
-  extends DefaultJimpleIFDSTabulationProblem[(Value, Set[AbstractValue]), InterproceduralCFG[soot.Unit, SootMethod]](icfg) {
+class AbstractValuePropIFDS(core: Core)
+  extends DefaultJimpleIFDSTabulationProblem[(Value, Set[AbstractValue]), InterproceduralCFG[soot.Unit, SootMethod]](core.icfg) {
   type Domain = (Value, Set[AbstractValue])
   private val id = Identity.v[Domain]()
   private val killAll = KillAll.v[Domain]()
@@ -33,8 +31,7 @@ class AbstractValuePropIFDS(val icfg: InterproceduralCFG[soot.Unit, SootMethod])
 
   private def putUnitAbstractions(u: soot.Unit): Unit = {
     val method = interproceduralCFG.getMethodOf(u)
-    if (Core.isDebugMode)
-      println(s"putUnitAbstractions: $method")
+    if (core.isDebugMode) println(s"putUnitAbstractions: $method")
     visitedMethods.add(method)
   }
 

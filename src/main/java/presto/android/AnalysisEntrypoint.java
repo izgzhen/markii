@@ -128,7 +128,8 @@ public class AnalysisEntrypoint {
     // Analysis
     // TODO: use reflection to allow nice little extensions.
     if (Configs.guiAnalysis) {
-      Core.run();
+      Core core = new Core();
+      core.run();
       Date endTime = new Date();
       Logger.verb(this.getClass().getSimpleName(),
               "Soot stopped on " + endTime);

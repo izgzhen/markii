@@ -44,46 +44,30 @@ object Constants {
   val androidViewOnClickListenerClassName = "android.view.View$OnClickListener"
   val androidViewOnTouchListenerClassName = "android.view.View$OnTouchListener"
 
-  private val viewEventListenerClasses: List[SootClass] = List(
+  val viewEventListenerClasses: List[SootClass] = List(
     Scene.v().getSootClass(androidViewOnClickListenerClassName),
     Scene.v().getSootClass(androidViewOnTouchListenerClassName)
   )
 
   private val viewClass = Scene.v().getSootClass(Constants.androidViewClassName)
-  private val activityClasses = androidActivityClassNames.map(Scene.v().getSootClass(_))
-  private val serviceClass = Scene.v().getSootClass("android.app.Service")
-  private val receiverClass = Scene.v().getSootClass("android.content.BroadcastReceiver")
-  private val androidDialogOnClickListenerClass = Scene.v().getSootClass(androidDialogOnClickListenerClassName)
+  val activityClasses = androidActivityClassNames.map(Scene.v().getSootClass(_))
+  val serviceClass = Scene.v().getSootClass("android.app.Service")
+  val receiverClass = Scene.v().getSootClass("android.content.BroadcastReceiver")
+  val androidDialogOnClickListenerClass = Scene.v().getSootClass(androidDialogOnClickListenerClassName)
 
   val guiClasses: List[SootClass] = List(
     viewClass,
     androidDialogOnClickListenerClass
   ) ++ viewEventListenerClasses ++ activityClasses
 
-  def isActivity(c: SootClass): Boolean = activityClasses.exists(activityClass => AppInfo.hier.isSubclassOf(c, activityClass))
-  def isService(c: SootClass): Boolean = AppInfo.hier.isSubclassOf(c, serviceClass)
-  def isReceiver(c: SootClass): Boolean = AppInfo.hier.isSubclassOf(c, receiverClass)
-  def isDialogOnClickListener(c: SootClass): Boolean = AppInfo.hier.isSubclassOf(c, androidDialogOnClickListenerClass)
 
-  def isViewEventListenerClass(sootClass: SootClass): Boolean =
-    viewEventListenerClasses.exists(cls => AppInfo.hier.isSubclassOf(sootClass, cls))
-
-  private val dialogClassNames = List(
+  val dialogClassNames = List(
     "android.support.v7.app.AlertDialog",
     "android.app.AlertDialog",
     "androidx.appcompat.app.AlertDialog",
     "android.app.Dialog",
     "android.app.AlertDialog$Builder"
   )
-
-  def isDialogBuilderClass(sootClass: SootClass): Boolean =
-    dialogClassNames.exists(x => AppInfo.hier.isSubclassOf(sootClass, Scene.v().getSootClass(x + "$Builder")))
-
-  def isDialogClass(sootClass: SootClass): Boolean =
-    dialogClassNames.exists(x => AppInfo.hier.isSubclassOf(sootClass, Scene.v().getSootClass(x)))
-
-  def isDialogFragment(sootClass: SootClass): Boolean =
-    AppInfo.hier.isSubclassOf(sootClass, dialogFragmentClass)
 
   def isDialogBuilderCreate(sig: String): Boolean =
     dialogClassNames.exists(x => sig == "<" + x + "$Builder: " + x + " create()>")
@@ -131,27 +115,6 @@ object Constants {
     ("com.ltad.unions.ads", "showAd"),
     ("com.screen.main.CoverAdComponent", "showAd"),
     ("com.Leadbolt.AdController", "loadNotification"))
-
-  def isActivitySetContentViewWithInt(m: SootMethod): Boolean =
-    m.getSubSignature == "void setContentView(int)" && isActivity(m.getDeclaringClass)
-
-  def isActivitySetContentViewWithView(m: SootMethod): Boolean =
-    m.getSubSignature == "void setContentView(android.view.View)" && isActivity(m.getDeclaringClass)
-
-  def isActivityFindViewById(m: SootMethod): Boolean =
-    m.getSubSignature == "android.view.View findViewById(int)" && isActivity(m.getDeclaringClass)
-
-  def isActivityRunOnUiThread(m: SootMethod): Boolean =
-    m.getSubSignature == "void runOnUiThread(java.lang.Runnable)" && isActivity(m.getDeclaringClass)
-
-  def isDialogSetContentViewWithInt(m: SootMethod): Boolean =
-    m.getSubSignature == "void setContentView(int)" && isDialogClass(m.getDeclaringClass)
-
-  def isDialogSetContentViewWithView(m: SootMethod): Boolean =
-    m.getSubSignature == "void setContentView(android.view.View)" && isDialogClass(m.getDeclaringClass)
-
-  def isDialogFindViewById(m: SootMethod): Boolean =
-    m.getSubSignature == "android.view.View findViewById(int)" && isDialogClass(m.getDeclaringClass)
 
   def isViewFindViewById(m: SootMethod): Boolean =
     m.getSignature == "<android.view.View: android.view.View findViewById(int)>"
@@ -217,14 +180,4 @@ object Constants {
   }
 
   val runnerMethodName = "run_markii_generated"
-
-  def getLifecycleMethodWindow(m: SootMethod): Option[SootClass] = {
-    val cls = m.getDeclaringClass
-    // FIXME: use a more precise heuristic
-    if ((isActivity(cls) || isDialogClass(cls)) && m.getName.startsWith("on")) {
-      Some(cls)
-    } else {
-      None
-    }
-  }
 }

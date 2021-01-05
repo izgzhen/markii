@@ -9,7 +9,7 @@ import java.time.Instant
 import com.research.nomad.markii.Util.getJavaLineNumber
 import com.research.nomad.markii.analyses.PreVASCO
 import com.research.nomad.markii.dataflow.AbsNode.{ActNode, ListenerNode, ViewNode}
-import com.research.nomad.markii.{AppInfo, Constants, ControlFlowGraphManager, Core, Util}
+import com.research.nomad.markii.{Constants, Core, Util}
 import io.github.izgzhen.msbase.{IOUtil, JsonUtil}
 import presto.android.gui.listener.EventType
 
@@ -25,7 +25,7 @@ import scala.collection.mutable
  * Implementation of abstract value propagation for VASCO DFA framework
  * @param entryPoints: entry point methods
  */
-class AbstractValuePropVASCO(entryPoints: List[SootMethod])
+class AbstractValuePropVASCO(core: Core, preVasco: PreVASCO, entryPoints: List[SootMethod])
   extends ForwardInterProceduralAnalysis[SootMethod, soot.Unit, AFTDomain] {
 
   type Domain = AFTDomain
@@ -36,7 +36,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
   private def setDialogButtonListener(buttonType: DialogButtonType.Value, invokeExpr: InvokeExpr, d: AFTDomain,
                                       ctxMethod: SootMethod, stmt: Stmt): AFTDomain = {
     invokeExpr.getArgs.asScala.map(_.getType).collectFirst {
-      case refType: RefType if Constants.isDialogOnClickListener(refType.getSootClass) => refType.getSootClass
+      case refType: RefType if core.appInfo.isDialogOnClickListener(refType.getSootClass) => refType.getSootClass
     } match {
       case Some(listener) =>
         val handler = listener.getMethodByNameUnsafe("onClick")
@@ -59,19 +59,19 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
         assigned(context, assignStmt, ref, castExpr.getOp, ctx, input)
       case newExpr: NewExpr =>
         val sootClass = newExpr.getBaseType.getSootClass
-        if (AppInfo.hier.isSubclassOf(sootClass, Scene.v().getSootClass(Constants.androidViewClassName))) {
+        if (core.appInfo.hier.isSubclassOf(sootClass, Scene.v().getSootClass(Constants.androidViewClassName))) {
           killed.newView(ref, sootClass, assignStmt)
-        } else if (Constants.isDialogBuilderClass(sootClass)) {
+        } else if (core.appInfo.isDialogBuilderClass(sootClass)) {
           killed.newView(ref, sootClass, assignStmt)
-        } else if (Constants.isDialogClass(sootClass)) {
+        } else if (core.appInfo.isDialogClass(sootClass)) {
           killed.newView(ref, sootClass, assignStmt)
-        } else if (Constants.isViewEventListenerClass(sootClass)) {
+        } else if (core.appInfo.isViewEventListenerClass(sootClass)) {
           killed.newListener(ref, sootClass)
-        } else if (AppInfo.hier.isSubclassOf(sootClass, Constants.layoutParamsClass)) {
+        } else if (core.appInfo.hier.isSubclassOf(sootClass, Constants.layoutParamsClass)) {
           killed.newLayoutParams(ref)
         } else if (UnifiedObjectAPI.isBaseClass(sootClass)) {
           killed.newUnifiedObject(ref, sootClass, assignStmt)
-        } else if(Constants.isDialogFragment(sootClass)) {
+        } else if(core.appInfo.isDialogFragment(sootClass)) {
           killed.newView(ref, sootClass, assignStmt)
         } else {
           killed
@@ -98,7 +98,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
         }
       case invokeExpr: InstanceInvokeExpr =>
         val signature = invokeExpr.getMethod.getSignature
-        if (Constants.isActivityFindViewById(invokeExpr.getMethod)) {
+        if (core.appInfo.isActivityFindViewById(invokeExpr.getMethod)) {
           invokeExpr.getArg(0) match {
             case intConstant: IntConstant =>
               val activityBase = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase
@@ -117,7 +117,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
             case _ =>
           }
         }
-        if (Constants.isDialogFindViewById(invokeExpr.getMethod) || Constants.isViewFindViewById(invokeExpr.getMethod)) {
+        if (core.appInfo.isDialogFindViewById(invokeExpr.getMethod) || Constants.isViewFindViewById(invokeExpr.getMethod)) {
           invokeExpr.getArg(0) match {
             case intConstant: IntConstant =>
               val viewLocal = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.asInstanceOf[Local]
@@ -176,7 +176,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
   private val logStateInterval = 1000
 
   private def logState(method: SootMethod, unit: soot.Unit, d: Domain): Unit = {
-    if (!Core.isDebugMode) return
+    if (!core.isDebugMode) return
     if (logStateCounter == logStateInterval) {
       println(logStateMethodCounters.toList.sortBy(_._2).takeRight(5))
       logStateMethodCounters = mutable.Map[SootMethod, Int]()
@@ -217,7 +217,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
       case stmt: JIdentityStmt =>
         val methodName = context.getMethod.getName
         val methodClass = context.getMethod.getDeclaringClass
-        if (stmt.getRightOp.isInstanceOf[ThisRef] && Constants.isActivity(methodClass) && methodName == Constants.runnerMethodName) {
+        if (stmt.getRightOp.isInstanceOf[ThisRef] && core.appInfo.isActivity(methodClass) && methodName == Constants.runnerMethodName) {
           // HACK: This is a HACK
           val localRef = Ref.from(stmt.getLeftOp)
           val killed = d.killRef(localRef)
@@ -235,13 +235,13 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
   override def callEntryFlowFunction(context: DomainContext, m: SootMethod, callSite: soot.Unit, d: Domain): Domain = {
     val stmt = callSite.asInstanceOf[Stmt]
     val invokeExpr = stmt.getInvokeExpr
-    var ret = if (PreVASCO.isStartWindowStmt(callSite.asInstanceOf[Stmt])) {
+    var ret = if (preVasco.isStartWindowStmt(callSite.asInstanceOf[Stmt])) {
       topValue()
     } else {
       d.getHeap
     }
     // Set the current window class in the abstract state before entering into the lifecycle method
-    ret = Constants.getLifecycleMethodWindow(m) match {
+    ret = core.appInfo.getLifecycleMethodWindow(m) match {
       case Some(cls) => ret.copy(currentWindowClasses = Set(cls))
       case None => ret
     }
@@ -314,7 +314,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
    */
   private def inflate(d: AFTDomain, context: DomainContext, stmt: Stmt, id: Int,
                       ref: Ref, parentView: Local, attachToRoot: Boolean): AFTDomain = {
-    val view = AppInfo.findViewById(id)
+    val view = core.appInfo.findViewById(id)
     val viewNode = ViewNode(stmt, id = Set(id), androidView = view)
     val traverser = new InflateTraverser(None)
     // Set XML-declared handlers for each sub-node of the inflated view tree in the abstract state
@@ -331,7 +331,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
    * access the bind handlers including the sub-view during construction
    */
   def setContentViewDialog(d: AFTDomain, ctxMethod: SootMethod, stmt: Stmt, dialogLocal: Local, id: Int): AFTDomain = {
-    val androidView = AppInfo.findViewById(id)
+    val androidView = core.appInfo.findViewById(id)
     val viewNode = ViewNode(stmt, id = Set(id, androidView.getId.toInt), androidView = androidView)
     d.inflateAFT(stmt, viewNode, androidView, optTraverser = Some(new InflateTraverser(None))).withEdge(ctxMethod, stmt, dialogLocal, viewNode)
   }
@@ -341,7 +341,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
    * access the bind handlers including the sub-view during construction
    */
   def setContentViewAct(context: DomainContext, d: AFTDomain, stmt: Stmt, actClass: SootClass, id: Int): AFTDomain = {
-    val view = AppInfo.findViewById(id)
+    val view = core.appInfo.findViewById(id)
     val viewNode = ViewNode(stmt, id = Set(id, view.getId.toInt), androidView = view)
     d.inflateAFT(stmt, viewNode, view, optTraverser = Some(new InflateTraverser(Some(actClass)))).copy(
       activityRootViewMap = d.activityRootViewMap + (actClass -> Set(viewNode))
@@ -375,7 +375,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
     }).filter(m => m != null && m.isConcrete && m.hasActiveBody)
     for (handler <- handlers) {
       for (dialogNode <- d.getOwnerDialogs(context.getMethod, stmt, viewBase)) {
-        ControlFlowGraphManager.addViewHandlerToEventLoopDialog(dialogNode, handler) match {
+        core.controlFlowGraphManager.addViewHandlerToEventLoopDialog(dialogNode, handler) match {
           case Some((runner, invocation)) =>
             aftProgramRepresentation.refreshCFGcache(runner)
             val callers = getCallers(context)
@@ -394,7 +394,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
         // FIXME: continueButton has no owner activities
         // FIXME: adding handler invocation might make some context missing nodes when joining over feasible
         //        paths
-        ControlFlowGraphManager.addViewHandlerToEventLoopAct(ownerActivity, handler) match {
+        core.controlFlowGraphManager.addViewHandlerToEventLoopAct(ownerActivity, handler) match {
           case Some((runner, invocation)) =>
             aftProgramRepresentation.refreshCFGcache(runner)
             for (runnerContext <- getContexts(runner).asScala) {
@@ -417,7 +417,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
                       eventType: EventType, viewNode: ViewNode, sourceLoc: SourceLoc): AFTDomain = {
     // FIXME: windowClass vs Activity? Maybe we can unify them?....since the virtual/fake method contains the constructed
     //  instance for all em'
-    ControlFlowGraphManager.addViewHandlerToEventLoopAct(windowClass, handler) match {
+    core.controlFlowGraphManager.addViewHandlerToEventLoopAct(windowClass, handler) match {
       case Some((runner, invocation)) =>
         aftProgramRepresentation.refreshCFGcache(runner)
         for (runnerContext <- getContexts(runner).asScala) {
@@ -453,7 +453,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
           }
           if (Constants.isDialogSetButton(invokeExpr.getMethod.getSignature)) {
             invokeExpr.getArgs.asScala.map(_.getType).collectFirst {
-              case refType: RefType if Constants.isDialogOnClickListener(refType.getSootClass) => refType.getSootClass
+              case refType: RefType if core.appInfo.isDialogOnClickListener(refType.getSootClass) => refType.getSootClass
             } match {
               case Some(listener) =>
                 val handler = listener.getMethodByNameUnsafe("onClick")
@@ -501,16 +501,16 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
           }
           // FIXME: improve precision, handle View argument
           // FIMXE: sub-class won't get the correct predicat here
-          if (Constants.isActivitySetContentViewWithInt(invokeExpr.getMethod)) {
+          if (core.appInfo.isActivitySetContentViewWithInt(invokeExpr.getMethod)) {
             invokeExpr.getArg(0) match {
               case intConstant: IntConstant => return setContentView(context, d, invokeExpr, stmt, Left(intConstant.value))
               case _ =>
             }
           }
-          if (Constants.isActivitySetContentViewWithView(invokeExpr.getMethod)) {
+          if (core.appInfo.isActivitySetContentViewWithView(invokeExpr.getMethod)) {
             return setContentView(context, d, invokeExpr, stmt, Right(invokeExpr.getArg(0).asInstanceOf[Local]))
           }
-          if (Constants.isDialogSetContentViewWithInt(invokeExpr.getMethod)) {
+          if (core.appInfo.isDialogSetContentViewWithInt(invokeExpr.getMethod)) {
             val dialogBase = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.asInstanceOf[Local]
             invokeExpr.getArg(0) match {
               case intConstant: IntConstant =>
@@ -518,11 +518,11 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
               case _ =>
             }
           }
-          if (Constants.isDialogSetContentViewWithView(invokeExpr.getMethod)) {
+          if (core.appInfo.isDialogSetContentViewWithView(invokeExpr.getMethod)) {
             val dialogBase = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.asInstanceOf[Local]
             return d.setContentViewDialog(context.getMethod, stmt, dialogBase, invokeExpr.getArg(0).asInstanceOf[Local])
           }
-          if (AppInfo.hier.isSubclassOf(invokeExpr.getMethod.getDeclaringClass, Constants.layoutParamsClass)) {
+          if (core.appInfo.hier.isSubclassOf(invokeExpr.getMethod.getDeclaringClass, Constants.layoutParamsClass)) {
             if (invokeExpr.getMethod.getName == "<init>") {
               val paramsBase = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.asInstanceOf[Local]
               if (invokeExpr.getMethod.getSubSignature == "void <init>(int,int)") {
@@ -531,9 +531,9 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
               println("Unhandled: " + invokeExpr.getMethod.getSignature)
             }
           }
-          if (AppInfo.hier.isSubclassOf(invokeExpr.getMethod.getDeclaringClass, Constants.dialogFragmentClass)){
+          if (core.appInfo.hier.isSubclassOf(invokeExpr.getMethod.getDeclaringClass, Constants.dialogFragmentClass)){
             if (invokeExpr.getMethod.getSubSignature == "void show(androidx.fragment.app.FragmentManager,java.lang.String)") {
-              PreVASCO.showDialogInvocations.put(stmt, invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.asInstanceOf[Local])
+              preVasco.showDialogInvocations.put(stmt, invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.asInstanceOf[Local])
             }
           }
           invokeExpr match {

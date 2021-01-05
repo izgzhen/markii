@@ -17,13 +17,14 @@ import vasco.{VascoContext, CustomAnalysis, ProgramRepresentation}
  * @param entryPoints entry-point methods
  * @tparam V Object abstract state
  */
-class CustomStatePropVASCO[V <: AbsVal[V]](entryPoints: List[SootMethod], transformer: CustomObjectStateTransformer[V])
+class CustomStatePropVASCO[V <: AbsVal[V]](core: Core, preVasco: PreVASCO,
+                                           entryPoints: List[SootMethod], transformer: CustomObjectStateTransformer[V])
   extends CustomAnalysis[SootMethod, soot.Unit, CustomDomain[V]] {
   type Domain = CustomDomain[V]
   type DomainContext = VascoContext[SootMethod, soot.Unit, Domain]
 
   private def logState(method: SootMethod, unit: soot.Unit, d: Domain): Unit = {
-    if (!Core.isDebugMode) return
+    if (!core.isDebugMode) return
     if (method.getSignature != "<com.example.validrec.Recorder: void startRecording(java.io.File)>" &&
         method.getSignature != "<com.example.validrec.MainActivity: void startRec(android.view.View)>" &&
         method.getSignature != "<com.example.validrec.MainActivity: void run_markii_generated()>") {
@@ -115,7 +116,7 @@ class CustomStatePropVASCO[V <: AbsVal[V]](entryPoints: List[SootMethod], transf
                                      callSite: soot.Unit, d: Domain): Domain = {
     val stmt = callSite.asInstanceOf[Stmt]
     val invokeExpr = stmt.getInvokeExpr
-    var ret = if (PreVASCO.isStartWindowStmt(callSite.asInstanceOf[Stmt])) {
+    var ret = if (preVasco.isStartWindowStmt(callSite.asInstanceOf[Stmt])) {
       topValue()
     } else {
       d.getHeap

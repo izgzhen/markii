@@ -23,7 +23,7 @@ import scala.jdk.CollectionConverters._
  * FIXME: Current implementation is very hard to understand.
  * FIXME: Comb through its relationship with CallGraphManager
  */
-object ControlFlowGraphManager {
+class ControlFlowGraphManager(appInfo: AppInfo) {
   private var utilsBaseClass: SootClass = null
   def getUtilsBaseClass: SootClass = {
     if (utilsBaseClass == null) {
@@ -37,6 +37,7 @@ object ControlFlowGraphManager {
   private val dialogRunners = mutable.Map[Stmt, Runner]()
   private val dialogCreateRunners = mutable.Map[SootMethod, (Runner, Stmt)]()
   private val dialogFragmentRunners = mutable.Map[SootClass, SootMethod]()
+  val dialogHandlerToAnalyze = mutable.Set[SootMethod]()
 
   def getRunnerofDialogFragment(baseClass: SootClass): Option[SootMethod] = {
     if (!dialogFragmentRunners.contains(baseClass)) {
@@ -51,7 +52,7 @@ object ControlFlowGraphManager {
       body.getLocals.add(thisLocal)
       units.add(Jimple.v().newIdentityStmt(thisLocal, Jimple.v().newThisRef(baseClass.getType)))
       val onCreateDialog = baseClass.getMethod("android.app.Dialog onCreateDialog(android.os.Bundle)")
-      Core.dialogHandlerToAnalyze.add(onCreateDialog)
+      dialogHandlerToAnalyze.add(onCreateDialog)
       val createDialogStmt = Jimple.v().newAssignStmt(thisLocal, Jimple.v().newVirtualInvokeExpr(thisLocal, onCreateDialog.makeRef(), NullConstant.v()))
       units.add(createDialogStmt)
       Scene.v().getCallGraph.addEdge(new Edge(method, createDialogStmt, onCreateDialog))
@@ -103,7 +104,7 @@ object ControlFlowGraphManager {
       }
       if (rhsTypeOption.isEmpty) return None
       val rhsType = rhsTypeOption.get
-      val method = new SootMethod("_run_dialog_s" + Util.stmtId(defStmt),
+      val method = new SootMethod("_run_dialog_s" + appInfo.stmtId(defStmt),
         List(rhsType).asJava, VoidType.v, Modifier.PUBLIC | Modifier.STATIC)
       getUtilsBaseClass.addMethod(method)
       val body = Jimple.v().newBody(method)
@@ -187,7 +188,7 @@ object ControlFlowGraphManager {
   def getRunAllDialog(stmt: Stmt, methods: Iterable[SootMethod], ctxMethod: SootMethod): SootMethod = {
     if (!runAllMethods.contains(stmt)) {
       val base = stmt.getInvokeExpr.asInstanceOf[InstanceInvokeExpr].getBase
-      val runAllMethod = new SootMethod("_run_s" + Util.stmtId(stmt),
+      val runAllMethod = new SootMethod("_run_s" + appInfo.stmtId(stmt),
         List(base.getType).asJava, VoidType.v, Modifier.PUBLIC | Modifier.STATIC)
       getUtilsBaseClass.addMethod(runAllMethod)
       val body = Jimple.v().newBody(runAllMethod)
@@ -229,7 +230,7 @@ object ControlFlowGraphManager {
 
   def getRunAll(stmt: Stmt, methods: Iterable[SootMethod], baseClass: SootClass, replaced: SootMethod): SootMethod = {
     if (!runAllMethods.contains(stmt)) {
-      val runAllMethod = new SootMethod("_run_s" + Util.stmtId(stmt),
+      val runAllMethod = new SootMethod("_run_s" + appInfo.stmtId(stmt),
         replaced.getParameterTypes, VoidType.v, Modifier.PUBLIC)
       baseClass.addMethod(runAllMethod)
       val body = Jimple.v().newBody(runAllMethod)
@@ -351,7 +352,7 @@ object ControlFlowGraphManager {
 
   private def addHandlerToEventLoopAct(ownerActivity: SootClass, handler: SootMethod,
                                        createInvocation: Runner => Stmt): Option[(SootMethod, Stmt, Boolean)] = {
-    ControlFlowGraphManager.getRunner(ownerActivity) match {
+    getRunner(ownerActivity) match {
       case Some(runner) =>
         var changed = false
         if (!addedHandlers.contains(ownerActivity)) {
@@ -369,7 +370,7 @@ object ControlFlowGraphManager {
   private def addHandlerToEventLoopDialog(ownerDialog: ViewNode, handler: SootMethod,
                                           createInvocation: Runner => Stmt): Option[(SootMethod, Stmt, Boolean)] = {
     val defStmt = ownerDialog.allocSite
-    ControlFlowGraphManager.getRunnerOfDialog(defStmt) match {
+    getRunnerOfDialog(defStmt) match {
       case Some(runner) =>
         var changed = false
         if (!addedHandlersDialog.contains(defStmt)) {
