@@ -106,7 +106,7 @@ class PostAnalysis(core: Core, vascoSolution: DataFlowSolution[soot.Unit, AFTDom
         writer.writeFact(FactsWriter.Fact.viewClass, c.getName, viewNode.nodeID)
         if (appInfo.hier.isSubclassOf(c, Constants.buttonViewClass)) writer.writeFact(FactsWriter.Fact.buttonView, viewNode.nodeID)
         if (appInfo.isDialogClass(c)) {
-          writer.writeFact(FactsWriter.Fact.dialogView, viewNode.nodeID, appInfo.getMethodOf(viewNode.allocSite))
+          writer.writeFact(FactsWriter.Fact.dialogView, viewNode.nodeID, core.controlFlowGraphManager.getMethodOf(viewNode.allocSite))
         }
       case None =>
     }
@@ -261,7 +261,7 @@ class PostAnalysis(core: Core, vascoSolution: DataFlowSolution[soot.Unit, AFTDom
                 preVASCO.getShowDialogInvocations(stmt) match {
                   case Some(dialogBase) => {
                     for (dialogNode <- aftDomain.getViewNodes(reached, stmt, dialogBase)) {
-                      writer.writeFact(FactsWriter.Fact.dialogView, dialogNode.nodeID, appInfo.getMethodOf(dialogNode.allocSite))
+                      writer.writeFact(FactsWriter.Fact.dialogView, dialogNode.nodeID, core.controlFlowGraphManager.getMethodOf(dialogNode.allocSite))
                       writer.writeFact(FactsWriter.Fact.showDialog, handler, reached, dialogNode.nodeID)
                       // Write fact about dialog's YES/NO buttons' handlers
                       for (buttonType <- DialogButtonType.values) {

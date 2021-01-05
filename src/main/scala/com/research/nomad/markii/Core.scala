@@ -30,6 +30,12 @@ case class Runner(method: SootMethod, loopExit: soot.Unit, view: Local)
  */
 class Core extends IAnalysis {
   // Constructor:
+  private val analyzedMethods = mutable.Set[SootMethod]()
+  private var outputPath = "/tmp/markii-facts/"
+  private var apiSemanticConfig: Option[String] = None
+  private var debugMode = false
+  def isDebugMode: Boolean = debugMode
+
   val icfg: JimpleBasedInterproceduralCFG = new JimpleBasedInterproceduralCFG()
   readConfigs() // FIXME: make it clear what data is read by this
 
@@ -43,6 +49,7 @@ class Core extends IAnalysis {
   val appInfo = new AppInfo()
   Globals.appInfo = appInfo
   val controlFlowGraphManager = new ControlFlowGraphManager(appInfo)
+  Globals.controlFlowGraphManager = controlFlowGraphManager
 
   appendYamlReport("hier_application_activity_classes_size", appInfo.hier.applicationActivityClasses.size())
   appendYamlReport("hier_application_activity_classes", appInfo.hier.applicationActivityClasses.asScala.map(_.getName))
@@ -52,13 +59,6 @@ class Core extends IAnalysis {
 
   // TODO: use a proper harness
   val callGraphManager = new CallGraphManager(appInfo)
-
-  private val analyzedMethods = mutable.Set[SootMethod]()
-
-  private var outputPath = "/tmp/markii-facts/"
-  private var apiSemanticConfig: Option[String] = None
-  private var debugMode = false
-  def isDebugMode: Boolean = debugMode
 
   private var ifdsSolver: IFDSSolver[soot.Unit, (Value, Set[AbstractValue]), SootMethod, InterproceduralCFG[soot.Unit, SootMethod]] = _
 
@@ -89,12 +89,13 @@ class Core extends IAnalysis {
     // IFDS must run before VASCO since VASCO depends on IFDS as pre-analysis
     runIFDS()
 
-    DialogCreateInstrument.run(appInfo.allActivities)
+    val dialogCreateInstrument = new DialogCreateInstrument(this)
+    dialogCreateInstrument.run(appInfo.allActivities)
 
     val allInstrument = new AllInstrument(this)
     allInstrument.run(appInfo.allActivities)
 
-    val preVASCO = new PreVASCO(this, allInstrument)
+    val preVASCO = new PreVASCO(this, allInstrument, dialogCreateInstrument)
 
     // Write some constraints and prepare code for VASCO analysis
     for (handler <- appInfo.getAllHandlers) {

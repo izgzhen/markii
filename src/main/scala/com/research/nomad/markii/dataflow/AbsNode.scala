@@ -47,7 +47,7 @@ object AbsNode {
 
     // We want this ID to be deterministic across runs..
     val nodeID: Int = {
-      var hashCode = Globals.appInfo.stmtId(allocSite)
+      var hashCode = Globals.controlFlowGraphManager.stmtId(allocSite)
       for (i <- id) {
         hashCode ^= i
       }

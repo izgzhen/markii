@@ -14,7 +14,7 @@ import soot.jimple.toolkits.callgraph.Edge
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
-class PreVASCO(core: Core, allInstrument: AllInstrument) {
+class PreVASCO(core: Core, allInstrument: AllInstrument, dialogCreateInstrument: DialogCreateInstrument) {
   val showDialogInvocations = mutable.Map[Stmt, Local]()
   // NOTE: a type-safe way to prevent missing run All to configure heap transfer
   private val startWindowStmts: mutable.Set[Stmt] = mutable.Set()
@@ -90,7 +90,7 @@ class PreVASCO(core: Core, allInstrument: AllInstrument) {
               if (invokedMethod.getSubSignature == "void showDialog(int)") {
                 invokeExpr.getArg(0) match {
                   case intConstant: IntConstant =>
-                    DialogCreateInstrument.getShowInvocationOfCreateDialog(reached, intConstant.value) match {
+                    dialogCreateInstrument.getShowInvocationOfCreateDialog(reached, intConstant.value) match {
                       case Some(createMethod) =>
                         core.controlFlowGraphManager.getRunnerOfDialog(reached.getDeclaringClass, createMethod, intConstant) match {
                           case Some((runner, internalInvocation)) =>

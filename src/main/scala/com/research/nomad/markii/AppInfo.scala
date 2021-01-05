@@ -25,26 +25,7 @@ class AppInfo {
     hier.applicationActivityClasses.contains(c) && !c.isAbstract).toSet
   val mainActivity: SootClass = xmlParser.getMainActivity
 
-  private val unitToMethodMap: mutable.Map[soot.Unit, SootMethod] = mutable.Map[soot.Unit, SootMethod]()
-  initializeMethodMap()
   init()
-
-  private def initializeMethodMap(): Unit = {
-    for (c <- Scene.v().getClasses.asScala) {
-      for (m <- c.getMethods.asScala) {
-        if (m.hasActiveBody) {
-          for (u <- m.getActiveBody.getUnits.asScala) {
-            unitToMethodMap.addOne(u, m)
-          }
-        }
-      }
-    }
-  }
-
-  def getMethodOf(stmt: Stmt): SootMethod = {
-    unitToMethodMap(stmt)
-  }
-
 
   def findViewById(id: Int): AndroidView = xmlParser.findViewById(id)
 
@@ -141,28 +122,6 @@ class AppInfo {
   def getIdName(node: ViewNode): Set[String] = {
     node.id.flatMap(i => getIdName(i))
   }
-
-  private val stmtOffsets: mutable.Map[SootMethod, Map[Stmt, Int]] = mutable.Map()
-  def stmtOffset(method: SootMethod, stmt: Stmt): Int = {
-    if (!stmtOffsets.contains(method)) {
-      stmtOffsets.put(method, method.getActiveBody.getUnits.iterator().asScala.map(_.asInstanceOf[Stmt]).toList.zipWithIndex.toMap)
-    }
-    stmtOffsets(method)(stmt)
-  }
-
-  private val stmtIds: mutable.Map[Stmt, Int] = mutable.Map()
-  def stmtId(stmt: Stmt): Int = {
-    if (stmtIds.contains(stmt)) {
-      stmtIds(stmt)
-    } else {
-      val m = getMethodOf(stmt)
-      assert (m != null, stmt)
-      val i = m.getSignature.hashCode ^ stmtOffset(m, stmt) + 1
-      stmtIds.put(stmt, i)
-      i
-    }
-  }
-
 
   def isActivity(c: SootClass): Boolean = activityClasses.exists(activityClass => hier.isSubclassOf(c, activityClass))
   def isService(c: SootClass): Boolean = hier.isSubclassOf(c, serviceClass)
