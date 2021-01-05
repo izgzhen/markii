@@ -56,14 +56,16 @@ object Util {
     val printWriter = new PrintWriter(outputPath)
     for (m <- methods) {
       printWriter.println("====== Method " + m.getSignature + " =======")
-      printWriter.println(m.getActiveBody)
-      for (unit <- m.getActiveBody.getUnits.asScala) {
-        val d = solution.getValueAfter(unit)
-        if (d != null && nonEmpty(d)) {
-          printWriter.println("\tUnit: " + unit)
-          printWriter.println("Domain: ")
-          printWriter.println(d, domainToString(d))
-          printWriter.println()
+      if (m.hasActiveBody) { // To fix CI error https://github.com/izgzhen/markii/pull/75/checks?check_run_id=1647042974
+        printWriter.println(m.getActiveBody)
+        for (unit <- m.getActiveBody.getUnits.asScala) {
+          val d = solution.getValueAfter(unit)
+          if (d != null && nonEmpty(d)) {
+            printWriter.println("\tUnit: " + unit)
+            printWriter.println("Domain: ")
+            printWriter.println(d, domainToString(d))
+            printWriter.println()
+          }
         }
       }
     }
