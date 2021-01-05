@@ -5,7 +5,7 @@
 package com.research.nomad.markii.dataflow
 
 import com.research.nomad.markii.Util.getJavaLineNumber
-import com.research.nomad.markii.{AppInfo, Constants, PreAnalyses}
+import com.research.nomad.markii.{AppInfo, Constants, Globals, PreAnalyses}
 import com.research.nomad.markii.dataflow.AbsNode.{ActNode, LayoutParamsNode, ListenerNode, UnifiedObjectNode, ViewNode}
 import presto.android.gui.listener.EventType
 import presto.android.xml.AndroidView
@@ -248,7 +248,7 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
           } else {
             getOwnerDialogs(contextMethod, stmt, parentNode, visited + parentNode)
           })
-      case None => if (viewNode.sootClass.nonEmpty && Constants.isDialogClass(viewNode.sootClass.get)) {
+      case None => if (viewNode.sootClass.nonEmpty && Globals.appInfo.isDialogClass(viewNode.sootClass.get)) {
         Set(viewNode)
       } else {
         Set()
@@ -419,12 +419,12 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
   private def setDialogButtonHandler(viewNode: ViewNode, buttonType: DialogButtonType.Value,
                                      handler: SootMethod): AFTDomain = {
     val viewNodeClass = viewNode.sootClass.get
-    if (Constants.isDialogBuilderClass(viewNodeClass)) {
+    if (Globals.appInfo.isDialogBuilderClass(viewNodeClass)) {
       var dialogHandlerMap2 = dialogHandlerMap
       dialogHandlerMap2 += ((viewNode, buttonType) -> Set(handler))
       copy(dialogHandlerMap = dialogHandlerMap2)
     } else {
-      assert(Constants.isDialogClass(viewNodeClass))
+      assert(Globals.appInfo.isDialogClass(viewNodeClass))
       var d = copy()
       for (buttonView <- findViewByButtonType(viewNode, buttonType)) {
         d = d.setHandlers(buttonView, EventType.click, Set((handler, SourceLoc.fromJavaLinked(handler))))
@@ -454,7 +454,7 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
           case (attr, stringConstant: StringConstant) =>
             Some((attr, stringConstant.value))
           case (attr, intConstant: IntConstant) =>
-            AppInfo.getStringResourceValueById(intConstant.value) match{
+            Globals.appInfo.getStringResourceValueById(intConstant.value) match{
               case Some(s) =>
                 Some((attr, s))
               case _ => None
@@ -567,7 +567,7 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
   private def newView_(ref: Ref, sootClass: SootClass, stmt: Stmt): (AFTDomain, ViewNode) = {
     val node = ViewNode(stmt, sootClass = Some(sootClass), androidView = null)
     var d = withNode(ref, node)
-    if (Constants.isDialogClass(sootClass)) {
+    if (Globals.appInfo.isDialogClass(sootClass)) {
       // https://developer.android.com/reference/android/content/DialogInterface
       // TODO: inflate existing built-in template instead?
       val buttons = List(

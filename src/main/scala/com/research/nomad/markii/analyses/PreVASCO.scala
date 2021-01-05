@@ -14,7 +14,7 @@ import soot.jimple.toolkits.callgraph.Edge
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
-object PreVASCO {
+class PreVASCO(core: Core, allInstrument: AllInstrument) {
   val showDialogInvocations = mutable.Map[Stmt, Local]()
   // NOTE: a type-safe way to prevent missing run All to configure heap transfer
   private val startWindowStmts: mutable.Set[Stmt] = mutable.Set()
@@ -26,7 +26,7 @@ object PreVASCO {
   def isStartWindowStmt(stmt: Stmt): Boolean = startWindowStmts.contains(stmt)
 
   def analyze(handler: SootMethod): Unit = {
-    val reachedMethods = CallGraphManager.reachableMethods(handler)
+    val reachedMethods = core.callGraphManager.reachableMethods(handler)
     for (reached <- reachedMethods) {
       if (reached.getDeclaringClass.isApplicationClass && reached.isConcrete && reached.hasActiveBody) {
         val swaps = mutable.Map[Stmt, Stmt]()
@@ -39,12 +39,12 @@ object PreVASCO {
               if (invokedMethod.getSubSignature == "void startActivity(android.content.Intent)") {
                 // NOTE: the base type is only used to provide an application context, thus it can't be used to infer the
                 //       source activity
-                Core.getIfdsResultAt(stmt, invokeExpr.getArg(0)).foreach {
+                core.getIfdsResultAt(stmt, invokeExpr.getArg(0)).foreach {
                   case AbstractValue.Intent(intent) =>
                     // FIXME: imprecision if we ignore the actions etc. fields?
                     val methods = mutable.Set[SootMethod]()
                     for (target <- intent.targets) {
-                      ControlFlowGraphManager.getRunner(target) match {
+                      core.controlFlowGraphManager.getRunner(target) match {
                         case Some(runner) => methods.add(runner.method)
                         case None =>
                       }
@@ -53,7 +53,7 @@ object PreVASCO {
                       }
                     }
                     val base = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.getType.asInstanceOf[RefType].getSootClass
-                    val runAllMethod = ControlFlowGraphManager.getRunAll(stmt, methods, base, invokedMethod)
+                    val runAllMethod = core.controlFlowGraphManager.getRunAll(stmt, methods, base, invokedMethod)
                     Scene.v().getCallGraph.removeAllEdgesOutOf(stmt)
                     Scene.v().getCallGraph.addEdge(new Edge(reached, stmt, runAllMethod))
                     // NOTE: no invocation/stmt swap
@@ -71,14 +71,14 @@ object PreVASCO {
                 val dialogBase = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.asInstanceOf[Local]
                 val methods = mutable.Set[SootMethod]()
                 for (defStmt <- PreAnalyses.getDefsOfAt(reached, dialogBase, stmt)) {
-                  ControlFlowGraphManager.getRunnerOfDialog(defStmt) match {
+                  core.controlFlowGraphManager.getRunnerOfDialog(defStmt) match {
                     case Some(runner) => methods.add(runner.method)
                     case None =>
                   }
                 }
                 if (methods.nonEmpty) {
                   // FIXME: I need to build a static class for this type of work
-                  val runAllMethod = ControlFlowGraphManager.getRunAllDialog(stmt, methods, reached)
+                  val runAllMethod = core.controlFlowGraphManager.getRunAllDialog(stmt, methods, reached)
                   val invocation = Jimple.v().newInvokeStmt(Jimple.v().newStaticInvokeExpr(runAllMethod.makeRef(), dialogBase))
                   Scene.v().getCallGraph.removeAllEdgesOutOf(stmt)
                   Scene.v().getCallGraph.addEdge(new Edge(reached, invocation, runAllMethod))
@@ -92,10 +92,10 @@ object PreVASCO {
                   case intConstant: IntConstant =>
                     DialogCreateInstrument.getShowInvocationOfCreateDialog(reached, intConstant.value) match {
                       case Some(createMethod) =>
-                        ControlFlowGraphManager.getRunnerOfDialog(reached.getDeclaringClass, createMethod, intConstant) match {
+                        core.controlFlowGraphManager.getRunnerOfDialog(reached.getDeclaringClass, createMethod, intConstant) match {
                           case Some((runner, internalInvocation)) =>
                             val invocation = Jimple.v().newInvokeStmt(Jimple.v().newVirtualInvokeExpr(reached.getActiveBody.getThisLocal, runner.method.makeRef()))
-                            CallGraphManager.updateCall(reached, stmt, invocation, runner.method, Some(handler))
+                            core.callGraphManager.updateCall(reached, stmt, invocation, runner.method, Some(handler))
                             swaps.put(stmt, invocation)
                             startWindowStmts.add(invocation)
                             showDialogInvocations.put(internalInvocation, runner.view)
@@ -113,13 +113,13 @@ object PreVASCO {
                     val listenerArg = invokeExpr.getArg(idx).asInstanceOf[Local]
                     val listenerClass = listenerArg.getType.asInstanceOf[RefType].getSootClass
                     val adLoadHandler = listenerClass.getMethodByNameUnsafe("onNativeAdsLoaded")
-                    if (adLoadHandler != null && Constants.isActivity(reached.getDeclaringClass)) {
+                    if (adLoadHandler != null && core.appInfo.isActivity(reached.getDeclaringClass)) {
                       // Instrument adLoadHandler
-                      AllInstrument.instrumentRunOnUiThread(adLoadHandler)
+                      allInstrument.instrumentRunOnUiThread(adLoadHandler)
 
                       // Replace invocation
                       val invocation = Jimple.v().newInvokeStmt(Jimple.v().newVirtualInvokeExpr(listenerArg, adLoadHandler.makeRef()))
-                      CallGraphManager.updateCall(reached, stmt, invocation, adLoadHandler, Some(handler))
+                      core.callGraphManager.updateCall(reached, stmt, invocation, adLoadHandler, Some(handler))
                       swaps.put(stmt, invocation)
                     }
                   }

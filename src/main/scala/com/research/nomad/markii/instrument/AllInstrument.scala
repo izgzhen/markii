@@ -5,26 +5,26 @@
 package com.research.nomad.markii.instrument
 
 import com.research.nomad.markii.dataflow.Ref
-import com.research.nomad.markii.{AppInfo, CallGraphManager, Constants, ControlFlowGraphManager}
+import com.research.nomad.markii.{AppInfo, CallGraphManager, Constants, ControlFlowGraphManager, Core}
 import soot.{Local, RefType, SootClass, SootMethod}
 import soot.jimple.{InstanceInvokeExpr, Jimple, Stmt}
 
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
-object AllInstrument {
+class AllInstrument(core: Core) {
   def instrumentRunOnUiThread(m: SootMethod): Unit = {
     val swaps = mutable.Map[Stmt, Stmt]()
     for (unit <- m.getActiveBody.getUnits.asScala) {
       val stmt = unit.asInstanceOf[Stmt]
       if (stmt.containsInvokeExpr()) {
         val invokeExpr = stmt.getInvokeExpr
-        if (Constants.isActivityRunOnUiThread(invokeExpr.getMethod)) {
+        if (core.appInfo.isActivityRunOnUiThread(invokeExpr.getMethod)) {
           val runnableArg = invokeExpr.getArg(0).asInstanceOf[Local]
           val runnableArgClass = runnableArg.getType.asInstanceOf[RefType].getSootClass
           val runMethod = runnableArgClass.getMethodByNameUnsafe("run")
           val invocation = Jimple.v().newInvokeStmt(Jimple.v().newVirtualInvokeExpr(runnableArg, runMethod.makeRef()))
-          CallGraphManager.updateCall(m, stmt, invocation, runMethod)
+          core.callGraphManager.updateCall(m, stmt, invocation, runMethod)
           swaps.put(stmt, invocation)
         }
       }
@@ -49,17 +49,17 @@ object AllInstrument {
           val timerClass = timer.getType.asInstanceOf[RefType].getSootClass
           val onFinish = timerClass.getMethodByNameUnsafe("onFinish")
           val invocation = Jimple.v().newInvokeStmt(Jimple.v().newVirtualInvokeExpr(timer, onFinish.makeRef()))
-          CallGraphManager.updateCall(m, stmt, invocation, onFinish)
+          core.callGraphManager.updateCall(m, stmt, invocation, onFinish)
           swaps.put(stmt, invocation)
-        } else if (AppInfo.hier.isSubclassOf(invokeExpr.getMethod.getDeclaringClass, Constants.dialogFragmentClass)) {
+        } else if (core.appInfo.hier.isSubclassOf(invokeExpr.getMethod.getDeclaringClass, Constants.dialogFragmentClass)) {
           if (invokeExpr.getMethod.getSubSignature == "void <init>()") {
             val instanceInvokeExpr = invokeExpr.asInstanceOf[InstanceInvokeExpr]
             val baseLocal = instanceInvokeExpr.getBase
             val baseClass = baseLocal.getType.asInstanceOf[RefType].getSootClass
-            ControlFlowGraphManager.getRunnerofDialogFragment(baseClass) match {
+            core.controlFlowGraphManager.getRunnerofDialogFragment(baseClass) match {
               case Some(runner) =>
                 val invocation = Jimple.v().newInvokeStmt(Jimple.v().newVirtualInvokeExpr(baseLocal.asInstanceOf[Local], runner.makeRef()))
-                CallGraphManager.updateCall(m, stmt, invocation, runner.method)
+                core.callGraphManager.updateCall(m, stmt, invocation, runner.method)
                 swaps.put(stmt, invocation)
             }
           }

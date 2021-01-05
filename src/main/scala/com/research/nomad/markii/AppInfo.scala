@@ -4,16 +4,19 @@
 
 package com.research.nomad.markii
 
+import com.research.nomad.markii.Constants.{activityClasses, androidDialogOnClickListenerClass, dialogClassNames, dialogFragmentClass, receiverClass, serviceClass, viewEventListenerClasses}
 import com.research.nomad.markii.dataflow.AbsNode.ViewNode
 import presto.android.Hierarchy
 import presto.android.gui.IDNameExtractor
 import presto.android.xml.{AndroidView, XMLParser}
+import soot.jimple.Stmt
 import soot.{Scene, SootClass, SootMethod}
 
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
-object AppInfo {
+class AppInfo {
+  // Constructor
   val hier: Hierarchy = Hierarchy.v()
   private val xmlParser: XMLParser = XMLParser.Factory.getXMLParser
 
@@ -21,6 +24,27 @@ object AppInfo {
   val allActivities: Set[SootClass] = hier.frameworkManaged.keySet().asScala.filter(c =>
     hier.applicationActivityClasses.contains(c) && !c.isAbstract).toSet
   val mainActivity: SootClass = xmlParser.getMainActivity
+
+  private val unitToMethodMap: mutable.Map[soot.Unit, SootMethod] = mutable.Map[soot.Unit, SootMethod]()
+  initializeMethodMap()
+  init()
+
+  private def initializeMethodMap(): Unit = {
+    for (c <- Scene.v().getClasses.asScala) {
+      for (m <- c.getMethods.asScala) {
+        if (m.hasActiveBody) {
+          for (u <- m.getActiveBody.getUnits.asScala) {
+            unitToMethodMap.addOne(u, m)
+          }
+        }
+      }
+    }
+  }
+
+  def getMethodOf(stmt: Stmt): SootMethod = {
+    unitToMethodMap(stmt)
+  }
+
 
   def findViewById(id: Int): AndroidView = xmlParser.findViewById(id)
 
@@ -116,5 +140,76 @@ object AppInfo {
 
   def getIdName(node: ViewNode): Set[String] = {
     node.id.flatMap(i => getIdName(i))
+  }
+
+  private val stmtOffsets: mutable.Map[SootMethod, Map[Stmt, Int]] = mutable.Map()
+  def stmtOffset(method: SootMethod, stmt: Stmt): Int = {
+    if (!stmtOffsets.contains(method)) {
+      stmtOffsets.put(method, method.getActiveBody.getUnits.iterator().asScala.map(_.asInstanceOf[Stmt]).toList.zipWithIndex.toMap)
+    }
+    stmtOffsets(method)(stmt)
+  }
+
+  private val stmtIds: mutable.Map[Stmt, Int] = mutable.Map()
+  def stmtId(stmt: Stmt): Int = {
+    if (stmtIds.contains(stmt)) {
+      stmtIds(stmt)
+    } else {
+      val m = getMethodOf(stmt)
+      assert (m != null, stmt)
+      val i = m.getSignature.hashCode ^ stmtOffset(m, stmt) + 1
+      stmtIds.put(stmt, i)
+      i
+    }
+  }
+
+
+  def isActivity(c: SootClass): Boolean = activityClasses.exists(activityClass => hier.isSubclassOf(c, activityClass))
+  def isService(c: SootClass): Boolean = hier.isSubclassOf(c, serviceClass)
+  def isReceiver(c: SootClass): Boolean = hier.isSubclassOf(c, receiverClass)
+  def isDialogOnClickListener(c: SootClass): Boolean = hier.isSubclassOf(c, androidDialogOnClickListenerClass)
+
+  def isViewEventListenerClass(sootClass: SootClass): Boolean =
+    viewEventListenerClasses.exists(cls => hier.isSubclassOf(sootClass, cls))
+  def isDialogBuilderClass(sootClass: SootClass): Boolean =
+    dialogClassNames.exists(x => hier.isSubclassOf(sootClass, Scene.v().getSootClass(x + "$Builder")))
+
+  def isDialogClass(sootClass: SootClass): Boolean =
+    dialogClassNames.exists(x => hier.isSubclassOf(sootClass, Scene.v().getSootClass(x)))
+
+  def isDialogFragment(sootClass: SootClass): Boolean =
+    hier.isSubclassOf(sootClass, dialogFragmentClass)
+
+
+  def isActivitySetContentViewWithInt(m: SootMethod): Boolean =
+    m.getSubSignature == "void setContentView(int)" && isActivity(m.getDeclaringClass)
+
+  def isActivitySetContentViewWithView(m: SootMethod): Boolean =
+    m.getSubSignature == "void setContentView(android.view.View)" && isActivity(m.getDeclaringClass)
+
+  def isActivityFindViewById(m: SootMethod): Boolean =
+    m.getSubSignature == "android.view.View findViewById(int)" && isActivity(m.getDeclaringClass)
+
+  def isActivityRunOnUiThread(m: SootMethod): Boolean =
+    m.getSubSignature == "void runOnUiThread(java.lang.Runnable)" && isActivity(m.getDeclaringClass)
+
+  def isDialogSetContentViewWithInt(m: SootMethod): Boolean =
+    m.getSubSignature == "void setContentView(int)" && isDialogClass(m.getDeclaringClass)
+
+  def isDialogSetContentViewWithView(m: SootMethod): Boolean =
+    m.getSubSignature == "void setContentView(android.view.View)" && isDialogClass(m.getDeclaringClass)
+
+  def isDialogFindViewById(m: SootMethod): Boolean =
+    m.getSubSignature == "android.view.View findViewById(int)" && isDialogClass(m.getDeclaringClass)
+
+
+  def getLifecycleMethodWindow(m: SootMethod): Option[SootClass] = {
+    val cls = m.getDeclaringClass
+    // FIXME: use a more precise heuristic
+    if ((isActivity(cls) || isDialogClass(cls)) && m.getName.startsWith("on")) {
+      Some(cls)
+    } else {
+      None
+    }
   }
 }

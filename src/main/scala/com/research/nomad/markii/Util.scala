@@ -81,25 +81,4 @@ object Util {
     }
     -1
   }
-
-  private val stmtOffsets: mutable.Map[SootMethod, Map[Stmt, Int]] = mutable.Map()
-  def stmtOffset(method: SootMethod, stmt: Stmt): Int = {
-    if (!stmtOffsets.contains(method)) {
-      stmtOffsets.put(method, method.getActiveBody.getUnits.iterator().asScala.map(_.asInstanceOf[Stmt]).toList.zipWithIndex.toMap)
-    }
-    stmtOffsets(method)(stmt)
-  }
-
-  private val stmtIds: mutable.Map[Stmt, Int] = mutable.Map()
-  def stmtId(stmt: Stmt): Int = {
-    if (stmtIds.contains(stmt)) {
-      stmtIds(stmt)
-    } else {
-      val m = Core.getMethodOf(stmt)
-      assert (m != null, stmt)
-      val i = m.getSignature.hashCode ^ stmtOffset(m, stmt) + 1
-      stmtIds.put(stmt, i)
-      i
-    }
-  }
 }
