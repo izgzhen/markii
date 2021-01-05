@@ -3,23 +3,23 @@
 The current codebase is a mixture of Scala and Java. The Java part is mostly from [GATOR](http://web.cse.ohio-state.edu/presto/software/gator/), which provides [Soot](https://github.com/Sable/soot/) harness and some other
 supporting code. The main analysis is written in Scala, inside [this directory](https://github.com/izgzhen/ui-checker/tree/master/markii/src/main/scala/com/research/nomad/markii).
 
-The analysis code's entry is at [`GUIAnalysis.run`](https://github.com/izgzhen/ui-checker/blob/75f015c1d5192a46afc7c82b91a5492fe0731056/markii/src/main/scala/com/research/nomad/markii/GUIAnalysis.scala#L904),
+The analysis code's entry is at [`Core.run`](https://github.com/izgzhen/ui-checker/blob/75f015c1d5192a46afc7c82b91a5492fe0731056/markii/src/main/scala/com/research/nomad/markii/Core.scala#L904),
 which is hooked into the GATOR provided harness.
 
-The inputs & outputs arguments are specified by client params (see `GUIAnalysis.readConfigs`), and all outputs are written to
+The inputs & outputs arguments are specified by client params (see `Core.readConfigs`), and all outputs are written to
 files.
 
-The information from analyses are processed later inside other methods of `GUIAnalysis` and emitted to
+The information from analyses are processed later inside other methods of `Core` and emitted to
 Datalog `.facts` format.
 
 ## Control flow graph (CFG)
 
 The interprocedural-CFG (iCFG) is available to use inside the `def run`:
-See [this line](https://github.com/izgzhen/markii/blob/c017ee31ecc8165d297dbf15194f0d836011b2b0/src/main/scala/com/research/nomad/markii/GUIAnalysis.scala#L350) as an example.
+See [this line](https://github.com/izgzhen/markii/blob/c017ee31ecc8165d297dbf15194f0d836011b2b0/src/main/scala/com/research/nomad/markii/Core.scala#L350) as an example.
 
 ## Pointer-related
 
-- [`def isAlias`](https://github.com/izgzhen/markii/blob/c017ee31ecc8165d297dbf15194f0d836011b2b0/src/main/scala/com/research/nomad/markii/GUIAnalysis.scala#L191): Decide whether two points are aliases
+- [`def isAlias`](https://github.com/izgzhen/markii/blob/c017ee31ecc8165d297dbf15194f0d836011b2b0/src/main/scala/com/research/nomad/markii/Core.scala#L191): Decide whether two points are aliases
 
 ## GUI analysis
 
@@ -65,7 +65,7 @@ def f(a):
 
 First, iCFG is the combination of call-graph and control-flow graph.
 
-For IFDS/Heros, it is like here: https://github.com/izgzhen/markii/blob/d0d3f7c1562df62f8f882391e92bd9627c0c14f4/src/main/scala/com/research/nomad/markii/GUIAnalysis.scala#L302.
+For IFDS/Heros, it is like here: https://github.com/izgzhen/markii/blob/d0d3f7c1562df62f8f882391e92bd9627c0c14f4/src/main/scala/com/research/nomad/markii/Core.scala#L302.
 
 For VASCO, it is using a more dynamic approach: https://github.com/izgzhen/markii/blob/26da0655ae612cfce56a1aee72e09ad5be8ca7aa/src/main/scala/com/research/nomad/markii/dataflow/AFTProgramRepresentation.scala#L23 (`resolveTargets` tells you which methods might be called at a call-site)
 
@@ -77,6 +77,6 @@ The data-flow analysis (e.g. VASCO) propagates information in an inter-procedura
 starting from entrypoints. There might be two reasons for a method not processed by the analysis:
 
 1. The method is not in call graph at all. You should first confirm whether the method is in call graph after pre-analysis by either:
-  * Setting debugging breakpoint at e.g. `https://github.com/izgzhen/markii/blob/d0d3f7c1562df62f8f882391e92bd9627c0c14f4/src/main/scala/com/research/nomad/markii/GUIAnalysis.scala#L50` and check `Scene.v().getCallGraph()`. 
+  * Setting debugging breakpoint at e.g. `https://github.com/izgzhen/markii/blob/d0d3f7c1562df62f8f882391e92bd9627c0c14f4/src/main/scala/com/research/nomad/markii/Core.scala#L50` and check `Scene.v().getCallGraph()`. 
   * Or find it in the dumped call-graph (https://github.com/izgzhen/markii/wiki/Developer-Guide#dumped-debugging-info)
 2. The method is not reachable from entrypoints. The reasons are pretty complicated...please submit an issue on the details of your problem.

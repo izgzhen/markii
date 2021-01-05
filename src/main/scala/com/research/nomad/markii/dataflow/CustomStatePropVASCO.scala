@@ -4,7 +4,7 @@
 
 package com.research.nomad.markii.dataflow
 
-import com.research.nomad.markii.{GUIAnalysis, Util}
+import com.research.nomad.markii.{Core, Util}
 import com.research.nomad.markii.analyses.PreVASCO
 import io.github.izgzhen.msbase.{IOUtil, JsonUtil}
 import soot.{Local, SootMethod, Value}
@@ -23,7 +23,7 @@ class CustomStatePropVASCO[V <: AbsVal[V]](entryPoints: List[SootMethod], transf
   type DomainContext = VascoContext[SootMethod, soot.Unit, Domain]
 
   private def logState(method: SootMethod, unit: soot.Unit, d: Domain): Unit = {
-    if (!GUIAnalysis.isDebugMode) return
+    if (!Core.isDebugMode) return
     if (method.getSignature != "<com.example.validrec.Recorder: void startRecording(java.io.File)>" &&
         method.getSignature != "<com.example.validrec.MainActivity: void startRec(android.view.View)>" &&
         method.getSignature != "<com.example.validrec.MainActivity: void run_markii_generated()>") {

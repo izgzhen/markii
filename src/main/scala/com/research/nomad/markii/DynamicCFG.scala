@@ -51,7 +51,7 @@ object DynamicCFG {
       body.getLocals.add(thisLocal)
       units.add(Jimple.v().newIdentityStmt(thisLocal, Jimple.v().newThisRef(baseClass.getType)))
       val onCreateDialog = baseClass.getMethod("android.app.Dialog onCreateDialog(android.os.Bundle)")
-      GUIAnalysis.dialogHandlerToAnalyze.add(onCreateDialog)
+      Core.dialogHandlerToAnalyze.add(onCreateDialog)
       val createDialogStmt = Jimple.v().newAssignStmt(thisLocal, Jimple.v().newVirtualInvokeExpr(thisLocal, onCreateDialog.makeRef(), NullConstant.v()))
       units.add(createDialogStmt)
       Scene.v().getCallGraph.addEdge(new Edge(method, createDialogStmt, onCreateDialog))

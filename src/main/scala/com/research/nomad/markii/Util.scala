@@ -95,7 +95,7 @@ object Util {
     if (stmtIds.contains(stmt)) {
       stmtIds(stmt)
     } else {
-      val m = GUIAnalysis.getMethodOf(stmt)
+      val m = Core.getMethodOf(stmt)
       assert (m != null, stmt)
       val i = m.getSignature.hashCode ^ stmtOffset(m, stmt) + 1
       stmtIds.put(stmt, i)

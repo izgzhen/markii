@@ -8,7 +8,7 @@
  */
 package presto.android;
 
-import com.research.nomad.markii.GUIAnalysis;
+import com.research.nomad.markii.Core;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -128,7 +128,7 @@ public class AnalysisEntrypoint {
     // Analysis
     // TODO: use reflection to allow nice little extensions.
     if (Configs.guiAnalysis) {
-      GUIAnalysis.run();
+      Core.run();
       Date endTime = new Date();
       Logger.verb(this.getClass().getSimpleName(),
               "Soot stopped on " + endTime);
