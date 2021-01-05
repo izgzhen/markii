@@ -31,7 +31,7 @@ case class Runner(method: SootMethod, loopExit: soot.Unit, view: Local)
 /**
  * Core GUI Analysis that implement the client interface IAnalysis
  */
-object GUIAnalysis extends IAnalysis {
+object Core extends IAnalysis {
   private var writer: FactsWriter = _
 
   private val analyzedMethods = mutable.Set[SootMethod]()

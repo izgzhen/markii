@@ -20,7 +20,7 @@ Android/Java Static Analysis Library.
 - Output `$OUTPUT_PATH`: path to output directory
   * This directory will contain all `*.fact` output as well as other supporting files if any.
 
-Supported facts (partial, see [`Fact`](./docs/api/com/research/nomad/markii/FactsWriter$$Fact$.html) for a complete list):
+Supported facts (partial, see `com.research.nomad.markii.FactsWriter.Fact` for a complete list):
 
 - `eventHandler(e: Event, cb: Method, v: ViewID)`
   - When event `e` is trigger on view `v`, the handler `cb` will run

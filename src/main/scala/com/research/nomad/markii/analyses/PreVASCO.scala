@@ -4,7 +4,7 @@
 
 package com.research.nomad.markii.analyses
 
-import com.research.nomad.markii.{CallGraphManager, Constants, DynamicCFG, GUIAnalysis, Ic3Manager, PreAnalyses, Util}
+import com.research.nomad.markii.{CallGraphManager, Constants, DynamicCFG, Core, Ic3Manager, PreAnalyses, Util}
 import com.research.nomad.markii.dataflow.AbstractValue
 import com.research.nomad.markii.instrument.{AllInstrument, DialogCreateInstrument}
 import soot.{Local, RefType, Scene, SootClass, SootMethod}
@@ -39,7 +39,7 @@ object PreVASCO {
               if (invokedMethod.getSubSignature == "void startActivity(android.content.Intent)") {
                 // NOTE: the base type is only used to provide an application context, thus it can't be used to infer the
                 //       source activity
-                GUIAnalysis.getIfdsResultAt(stmt, invokeExpr.getArg(0)).foreach {
+                Core.getIfdsResultAt(stmt, invokeExpr.getArg(0)).foreach {
                   case AbstractValue.Intent(intent) =>
                     // FIXME: imprecision if we ignore the actions etc. fields?
                     val methods = mutable.Set[SootMethod]()

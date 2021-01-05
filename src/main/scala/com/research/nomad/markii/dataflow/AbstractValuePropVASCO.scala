@@ -9,7 +9,7 @@ import java.time.Instant
 import com.research.nomad.markii.Util.getJavaLineNumber
 import com.research.nomad.markii.analyses.PreVASCO
 import com.research.nomad.markii.dataflow.AbsNode.{ActNode, ListenerNode, ViewNode}
-import com.research.nomad.markii.{AppInfo, Constants, DynamicCFG, GUIAnalysis, Util}
+import com.research.nomad.markii.{AppInfo, Constants, DynamicCFG, Core, Util}
 import io.github.izgzhen.msbase.{IOUtil, JsonUtil}
 import presto.android.gui.listener.EventType
 
@@ -176,7 +176,7 @@ class AbstractValuePropVASCO(entryPoints: List[SootMethod])
   private val logStateInterval = 1000
 
   private def logState(method: SootMethod, unit: soot.Unit, d: Domain): Unit = {
-    if (!GUIAnalysis.isDebugMode) return
+    if (!Core.isDebugMode) return
     if (logStateCounter == logStateInterval) {
       println(logStateMethodCounters.toList.sortBy(_._2).takeRight(5))
       logStateMethodCounters = mutable.Map[SootMethod, Int]()
