@@ -125,7 +125,11 @@ class FactsWriter(val factDir: String) {
     val name = fact.toString
     if (!written.contains((name, line))) {
       written.add((name, line))
-      try getWriter(name).write(line)
+      try {
+        val writer = getWriter(name)
+        writer.write(line)
+        writer.flush()
+      }
       catch {
         case e: IOException =>
           e.printStackTrace()
