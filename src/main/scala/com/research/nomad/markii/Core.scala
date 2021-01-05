@@ -29,7 +29,7 @@ import scala.jdk.CollectionConverters._
 case class Runner(method: SootMethod, loopExit: soot.Unit, view: Local)
 
 /**
- * Core GUI Analysis that implement the client interface IAnalysis
+ * Core Analysis that implement the client interface IAnalysis
  */
 object Core extends IAnalysis {
   private var writer: FactsWriter = _
@@ -277,7 +277,7 @@ object Core extends IAnalysis {
 
   private def runVASCO(): Unit = {
     // NOTE: over-approx of entrypoints
-    val entrypointsFull = AppInfo.allActivities.flatMap(DynamicCFG.getRunner).map(_.method).toList
+    val entrypointsFull = AppInfo.allActivities.flatMap(ControlFlowGraphManager.getRunner).map(_.method).toList
     val vascoProp = new AbstractValuePropVASCO(entrypointsFull)
     println("VASCO starts")
     vascoProp.doAnalysis()
@@ -296,7 +296,7 @@ object Core extends IAnalysis {
   private def runCustomVASCO(): Unit = {
     // NOTE: over-approx of entrypoints
     // FIXME: code duplication
-    val entrypointsFull = AppInfo.allActivities.flatMap(DynamicCFG.getRunner).map(_.method).toList
+    val entrypointsFull = AppInfo.allActivities.flatMap(ControlFlowGraphManager.getRunner).map(_.method).toList
 
     val eventHandlers =
       writer.getStoredFacts(FactsWriter.Fact.eventHandler).map(
@@ -348,7 +348,7 @@ object Core extends IAnalysis {
       Constants.isActivity(c) || Constants.isService(c) || Constants.isReceiver(c)
     })
 
-    val entrypointsFull = AppInfo.allActivities.flatMap(DynamicCFG.getRunner).map(_.method).toList
+    val entrypointsFull = AppInfo.allActivities.flatMap(ControlFlowGraphManager.getRunner).map(_.method).toList
     appendYamlReport("entrypoints_full_size", entrypointsFull.size)
     appendYamlReport("entrypoints_full", entrypointsFull.map(_.getSignature))
 
@@ -405,7 +405,7 @@ object Core extends IAnalysis {
 
   private def analyzeActivityPreVasco(activityClass: SootClass): Unit = {
     for ((handler, _) <- AppInfo.getActivityHandlers(activityClass)) {
-      DynamicCFG.addActivityHandlerToEventLoop(activityClass, handler)
+      ControlFlowGraphManager.addActivityHandlerToEventLoop(activityClass, handler)
     }
     val onCreate = AppInfo.hier.virtualDispatch(MethodNames.onActivityCreateSubSig, activityClass)
     if (onCreate != null) {

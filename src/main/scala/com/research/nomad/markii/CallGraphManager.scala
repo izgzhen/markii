@@ -15,6 +15,7 @@ import scala.jdk.CollectionConverters._
 object CallGraphManager {
   val extraEdgeOutMap: mutable.Map[SootMethod, mutable.Set[SootMethod]] = mutable.Map()
   private var methodTargets: Map[SootMethod, Set[SootMethod]] = Map()
+  private val methodAndReachables = mutable.Map[SootMethod, mutable.Set[SootMethod]]()
 
   def saveOldCallGraph(): Unit = {
     methodTargets =
@@ -93,9 +94,6 @@ object CallGraphManager {
       }
     }
   }
-
-  private val methodAndReachables = mutable.Map[SootMethod, mutable.Set[SootMethod]]()
-
 
   def reachableMethods(m: SootMethod): Set[SootMethod] = {
     reachableMethods1(m).union(Set(m))

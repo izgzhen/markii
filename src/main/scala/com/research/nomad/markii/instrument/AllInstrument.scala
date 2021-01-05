@@ -5,7 +5,7 @@
 package com.research.nomad.markii.instrument
 
 import com.research.nomad.markii.dataflow.Ref
-import com.research.nomad.markii.{AppInfo, CallGraphManager, Constants, DynamicCFG}
+import com.research.nomad.markii.{AppInfo, CallGraphManager, Constants, ControlFlowGraphManager}
 import soot.{Local, RefType, SootClass, SootMethod}
 import soot.jimple.{InstanceInvokeExpr, Jimple, Stmt}
 
@@ -56,7 +56,7 @@ object AllInstrument {
             val instanceInvokeExpr = invokeExpr.asInstanceOf[InstanceInvokeExpr]
             val baseLocal = instanceInvokeExpr.getBase
             val baseClass = baseLocal.getType.asInstanceOf[RefType].getSootClass
-            DynamicCFG.getRunnerofDialogFragment(baseClass) match {
+            ControlFlowGraphManager.getRunnerofDialogFragment(baseClass) match {
               case Some(runner) =>
                 val invocation = Jimple.v().newInvokeStmt(Jimple.v().newVirtualInvokeExpr(baseLocal.asInstanceOf[Local], runner.makeRef()))
                 CallGraphManager.updateCall(m, stmt, invocation, runner.method)
