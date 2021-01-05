@@ -339,11 +339,20 @@ object GUIAnalysis extends IAnalysis {
     val analysis = new AbstractValuePropIFDS(icfg)
     ifdsSolver = new IFDSSolver(analysis)
     System.out.println("======================== IFDS Solver started  ========================")
+
+    appendYamlReport("ifds_entrypoints_before_filtering_size", Scene.v().getEntryPoints.size())
+    appendYamlReport("ifds_entrypoints_before_filtering", Scene.v().getEntryPoints.asScala.map(_.getSignature))
+
     val entrypoints = Scene.v().getEntryPoints.asScala.filter(m => {
       val c = m.getDeclaringClass
       Constants.isActivity(c) || Constants.isService(c) || Constants.isReceiver(c)
     })
-    Scene.v().setEntryPoints(entrypoints.asJava)
+
+    val entrypointsFull = AppInfo.allActivities.flatMap(DynamicCFG.getRunner).map(_.method).toList
+    appendYamlReport("entrypoints_full_size", entrypointsFull.size)
+    appendYamlReport("entrypoints_full", entrypointsFull.map(_.getSignature))
+
+    Scene.v().setEntryPoints((entrypoints ++ entrypointsFull).asJava)
 
     appendYamlReport("ifds_entrypoints_size", Scene.v().getEntryPoints.size())
     appendYamlReport("ifds_entrypoints", Scene.v().getEntryPoints.asScala.map(_.getSignature))
