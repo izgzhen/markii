@@ -9,7 +9,6 @@ import com.research.nomad.markii.dataflow.AbsNode.ViewNode
 import presto.android.Hierarchy
 import presto.android.gui.IDNameExtractor
 import presto.android.xml.{AndroidView, XMLParser}
-import soot.jimple.Stmt
 import soot.{Scene, SootClass, SootMethod}
 
 import scala.collection.mutable
@@ -27,7 +26,10 @@ class AppInfo {
 
   init()
 
-  def findViewById(id: Int): AndroidView = xmlParser.findViewById(id)
+  def findViewById(id: Int): Option[AndroidView] = xmlParser.findViewById(id) match {
+    case null => None
+    case v => Some(v)
+  }
 
   def getStringResourceValueById(id: Int): Option[String] = xmlParser.getStringValue(id) match {
     case null => None

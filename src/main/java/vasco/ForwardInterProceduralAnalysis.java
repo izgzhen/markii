@@ -288,7 +288,7 @@ public abstract class ForwardInterProceduralAnalysis<M,N,A> extends InterProcedu
 	 * @param method the method whose context to create
 	 * @param entryValue the data flow value at the entry of this method
 	 */
-	protected VascoContext<M,N,A> initContext(M method, A entryValue) {
+	public VascoContext<M,N,A> initContext(M method, A entryValue) {
 		// Construct the context
 		VascoContext<M,N,A> context = new VascoContext<M,N,A>(method, programRepresentation().getControlFlowGraph(method), false);
 

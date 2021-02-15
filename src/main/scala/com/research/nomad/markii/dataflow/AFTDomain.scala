@@ -599,7 +599,9 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
       for (((node, buttonType), handlers) <- dialogHandlerMap) {
         if (node == builderNode) {
           for (handler <- handlers) {
-            d = d.setDialogButtonHandler(dialogViewNode, handler, Some(buttonType))
+            if (handler != null) {
+              d = d.setDialogButtonHandler(dialogViewNode, handler, Some(buttonType))
+            }
           }
         }
       }

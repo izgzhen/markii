@@ -4,7 +4,7 @@
 
 package com.research.nomad.markii
 
-import java.io.PrintWriter
+import java.io.{BufferedWriter, FileWriter}
 
 import soot.{SootMethod, UnitPatchingChain}
 import soot.jimple.{InvokeExpr, Stmt}
@@ -12,6 +12,7 @@ import vasco.DataFlowSolution
 
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
+import io.github.izgzhen.msbase.JsonUtil
 
 object Util {
   /**
@@ -25,8 +26,19 @@ object Util {
       invokeExpr.getMethod
     } catch {
       case ignored: Exception =>
-        println(ignored)
         null
+    }
+  }
+
+  def getMethodByNameUnsafe(clazz: soot.SootClass, name: String): Option[SootMethod] = {
+    try {
+      clazz.getMethodByNameUnsafe(name) match {
+        case null => None
+        case m => Some(m)
+      }
+    } catch {
+      case ignored: Exception =>
+        None
     }
   }
 
@@ -51,28 +63,30 @@ object Util {
 
   def dumpVASCOAbstractions[D](outputPath: String, solution: DataFlowSolution[soot.Unit, D],
                                nonEmpty: D => Boolean,
-                               domainToString: D => String,
+                               domainToJSONObj: D => Object,
                                methods: Iterable[SootMethod]): Unit = {
-    val printWriter = new PrintWriter(outputPath)
+    val outputData = mutable.Map[String, List[(String, Object)]]()
     for (m <- methods) {
-      printWriter.println("====== Method " + m.getSignature + " =======")
+      val methodData = mutable.ArrayBuffer[(String, Object)]()
       if (m.hasActiveBody) { // To fix CI error https://github.com/izgzhen/markii/pull/75/checks?check_run_id=1647042974
-        printWriter.println(m.getActiveBody)
         for (unit <- m.getActiveBody.getUnits.asScala) {
           val d = solution.getValueAfter(unit)
           if (d != null && nonEmpty(d)) {
-            printWriter.println("\tUnit: " + unit)
-            printWriter.println("Domain: ")
-            printWriter.println(d, domainToString(d))
-            printWriter.println()
+            methodData.addOne((unit.toString, domainToJSONObj(d)))
           }
         }
+        outputData.put(m.getSignature, methodData.toList)
       }
     }
-    printWriter.close()
+    val bw = new BufferedWriter(new FileWriter(outputPath))
+    bw.write(JsonUtil.toJson(outputData))
+    bw.close()
   }
 
   def getJavaLineNumber(sootMethod : SootMethod): Int = {
+    if (!sootMethod.hasActiveBody || sootMethod.getActiveBody == null) {
+      return -1
+    }
     for (unit <- sootMethod.getActiveBody.getUnits.asScala) {
       val tmp = unit.getJavaSourceStartLineNumber
       if (tmp != -1){
