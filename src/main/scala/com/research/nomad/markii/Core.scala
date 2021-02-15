@@ -7,7 +7,7 @@ package com.research.nomad.markii
 import java.io.{FileWriter, PrintWriter}
 import java.nio.file.{Files, Paths}
 
-import com.research.nomad.markii.analyses.PreVASCO
+import com.research.nomad.markii.analyses.{ContextInsensitiveAnalysis, ContextSensitiveAnalysis, PreVASCO}
 import com.research.nomad.markii.dataflow.custom.{AbsFS, FromConfig}
 import com.research.nomad.markii.dataflow.{AFTDomain, AbsValSet, AbstractValue, AbstractValuePropIFDS, AbstractValuePropVASCO, CustomStatePropVASCO}
 import com.research.nomad.markii.instrument.{AllInstrument, DialogCreateInstrument, DialogInitInstrument}
@@ -140,18 +140,21 @@ class Core extends IAnalysis {
   private def runVASCO(preVasco: PreVASCO): DataFlowSolution[soot.Unit, AFTDomain] = {
     // NOTE: over-approx of entrypoints
     val entrypointsFull = appInfo.allActivities.flatMap(controlFlowGraphManager.getRunner).map(_.method).toList
-    val vascoProp = new AbstractValuePropVASCO(this, preVasco, entrypointsFull)
+//    val vascoProp = ContextSensitiveAnalysis(this, preVasco, entrypointsFull)
+    val vascoProp = ContextInsensitiveAnalysis(this, preVasco, entrypointsFull)
     println("VASCO starts")
     vascoProp.doAnalysis()
     println("VASCO finishes")
 
     analyzedMethods.addAll(appInfo.getAllHandlers)
-    analyzedMethods.addAll(vascoProp.getMethods.asScala)
-    if (sys.env.contains("BATCH_RUN")) {
-      Helper.getMeetOverValidPathsSolution(vascoProp)
-    } else {
-      Helper.getMeetOverValidPathsSolutionPar(vascoProp)
-    }
+    analyzedMethods.addAll(vascoProp.getMethods)
+
+//    if (sys.env.contains("BATCH_RUN")) {
+//      Helper.getMeetOverValidPathsSolution(vascoProp)
+//    } else {
+//      Helper.getMeetOverValidPathsSolutionPar(vascoProp)
+//    }
+    vascoProp.getMeetOverValidPathsSolution
   }
 
   private def runCustomVASCO(preVasco: PreVASCO, writer: FactsWriter): Unit = {
