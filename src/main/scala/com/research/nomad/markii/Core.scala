@@ -7,7 +7,7 @@ package com.research.nomad.markii
 import java.io.{FileWriter, PrintWriter}
 import java.nio.file.{Files, Paths}
 
-import com.research.nomad.markii.analyses.PreVASCO
+import com.research.nomad.markii.analyses.{ContextInsensitiveAnalysis, ContextSensitiveAnalysis, PreVASCO}
 import com.research.nomad.markii.dataflow.custom.{AbsFS, FromConfig}
 import com.research.nomad.markii.dataflow.{AFTDomain, AbsValSet, AbstractValue, AbstractValuePropIFDS, AbstractValuePropVASCO, CustomStatePropVASCO}
 import com.research.nomad.markii.instrument.{AllInstrument, DialogCreateInstrument, DialogInitInstrument}
@@ -32,6 +32,7 @@ class Core extends IAnalysis {
   // Constructor:
   private val analyzedMethods = mutable.Set[SootMethod]()
   private var outputPath = "/tmp/markii-facts/"
+  private var vascoMode = "context-sensitive,flow-sensitive"
   private var apiSemanticConfig: Option[String] = None
   private var debugMode = false
   def isDebugMode: Boolean = debugMode
@@ -140,17 +141,33 @@ class Core extends IAnalysis {
   private def runVASCO(preVasco: PreVASCO): DataFlowSolution[soot.Unit, AFTDomain] = {
     // NOTE: over-approx of entrypoints
     val entrypointsFull = appInfo.allActivities.flatMap(controlFlowGraphManager.getRunner).map(_.method).toList
-    val vascoProp = new AbstractValuePropVASCO(this, preVasco, entrypointsFull)
-    println("VASCO starts")
-    vascoProp.doAnalysis()
-    println("VASCO finishes")
+    vascoMode match {
+      case "context-sensitive,flow-sensitive" => {
+        val vascoProp = ContextSensitiveAnalysis(this, preVasco, entrypointsFull)
+        println("VASCO starts")
+        vascoProp.doAnalysis()
+        println("VASCO finishes")
 
-    analyzedMethods.addAll(appInfo.getAllHandlers)
-    analyzedMethods.addAll(vascoProp.getMethods.asScala)
-    if (sys.env.contains("BATCH_RUN")) {
-      Helper.getMeetOverValidPathsSolution(vascoProp)
-    } else {
-      Helper.getMeetOverValidPathsSolutionPar(vascoProp)
+        analyzedMethods.addAll(appInfo.getAllHandlers)
+        analyzedMethods.addAll(vascoProp.getMethods.asScala)
+
+        if (sys.env.contains("BATCH_RUN")) {
+          Helper.getMeetOverValidPathsSolution(vascoProp)
+        } else {
+          Helper.getMeetOverValidPathsSolutionPar(vascoProp)
+        }
+      }
+      case "context-insensitive,flow-sensitive" => {
+        val vascoProp = ContextInsensitiveAnalysis(this, preVasco, entrypointsFull)
+        println("VASCO starts")
+        vascoProp.doAnalysis()
+        println("VASCO finishes")
+
+        analyzedMethods.addAll(appInfo.getAllHandlers)
+        analyzedMethods.addAll(vascoProp.getMethods)
+
+        vascoProp.getMeetOverValidPathsSolution
+      }
     }
   }
 
@@ -190,6 +207,7 @@ class Core extends IAnalysis {
   private def readConfigs(): Unit = {
     for (param <- Configs.clientParams.asScala) {
       if (param.startsWith("output:")) outputPath = param.substring("output:".length)
+      if (param.startsWith("vascoMode:")) vascoMode = param.substring("vascoMode:".length)
       if (param.startsWith("apiSemanticConfig:")) apiSemanticConfig = Some(param.substring("apiSemanticConfig:".length))
     }
 

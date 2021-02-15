@@ -18,7 +18,11 @@ else
 fi
 
 if [ ! -z "$API_SEMANTICS_CONFIG" ]; then
-    API_SEMANTICS_CONFIG_PATH=$(realpath $API_SEMANTICS_CONFIG)
+    API_SEMANTICS_CONFIG_PARAM="-clientParam apiSemanticConfig:$(realpath $API_SEMANTICS_CONFIG)"
+fi
+
+if [ ! -z "$VASCO_MODE" ]; then
+    VASCO_MODE="-clientParam vascoMode:$VASCO_MODE"
 fi
 
 cd $DIR
@@ -32,9 +36,4 @@ if [ -z "$BATCH_RUN" ]; then
     ./markii b
 fi
 
-if [ -z "$API_SEMANTICS_CONFIG" ]; then
-    ./markii a -p $APK_PATH -clientParam output:$OUTPUT_PATH -temp $TEMPFILE_REMOVE
-else
-    ./markii a -p $APK_PATH -clientParam output:$OUTPUT_PATH \
-        -clientParam apiSemanticConfig:$API_SEMANTICS_CONFIG_PATH -temp $TEMPFILE_REMOVE
-fi
+./markii a -p $APK_PATH -clientParam output:$OUTPUT_PATH $API_SEMANTICS_CONFIG_PATH $VASCO_MODE -temp $TEMPFILE_REMOVE
