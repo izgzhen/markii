@@ -19,6 +19,8 @@ import scala.jdk.CollectionConverters._
  */
 class CallGraphManager(appInfo: AppInfo) {
   // Constructor:
+  private val extraEdgeOutMap: mutable.Map[SootMethod, mutable.Set[SootMethod]] = mutable.Map()
+  private val methodAndReachables = mutable.Map[SootMethod, mutable.Set[SootMethod]]()
   patchCallGraph()
   private val methodTargets: Map[SootMethod, Set[SootMethod]] = Scene.v().getCallGraph.sourceMethods().asScala.map(src => (src.method(), Scene.v().getCallGraph.edgesOutOf(src).asScala.map(_.getTgt.method()).toSet)).toMap
 
@@ -37,9 +39,6 @@ class CallGraphManager(appInfo: AppInfo) {
       case None =>
     }
   }
-
-  private val extraEdgeOutMap: mutable.Map[SootMethod, mutable.Set[SootMethod]] = mutable.Map()
-  private val methodAndReachables = mutable.Map[SootMethod, mutable.Set[SootMethod]]()
 
   private def isTargetMethod(target: SootMethod): Boolean =
     target.isConcrete && target.hasActiveBody && target.getDeclaringClass.isApplicationClass &&

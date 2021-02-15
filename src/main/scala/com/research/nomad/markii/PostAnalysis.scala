@@ -49,11 +49,15 @@ class PostAnalysis(core: Core, vascoSolution: DataFlowSolution[soot.Unit, AFTDom
     writeFactsPostVASCO()
   }
 
-  private def analyzeViewNode(viewNode: ViewNode): Unit = {
+  private def analyzeViewNode(viewNode: ViewNode, windowNode: Option[ViewNode] = None): Unit = {
+    val nodeID = windowNode match {
+      case Some(n) => n.nodeID // elf-ns
+      case None => viewNode.nodeID
+    }
     viewNode.id.foreach(id => {
       appInfo.getIdName(id) match {
         case Some(idName) =>
-          writer.writeFact(FactsWriter.Fact.idName, idName, viewNode.nodeID)
+          writer.writeFact(FactsWriter.Fact.idName, idName, nodeID)
           if (Constants.isAdIdName(idName)) {
             writer.writeFact(FactsWriter.Fact.adViewIdName, idName)
           }
@@ -66,25 +70,25 @@ class PostAnalysis(core: Core, vascoSolution: DataFlowSolution[soot.Unit, AFTDom
       if (value != null) {
         attrib match {
           case AndroidView.ViewAttr.layout_height =>
-            writer.writeDimensionFact(FactsWriter.Fact.layoutHeight, value, viewNode.nodeID)
+            writer.writeDimensionFact(FactsWriter.Fact.layoutHeight, value, nodeID)
           case AndroidView.ViewAttr.layout_width =>
-            writer.writeDimensionFact(FactsWriter.Fact.layoutWidth, value, viewNode.nodeID)
+            writer.writeDimensionFact(FactsWriter.Fact.layoutWidth, value, nodeID)
           case AndroidView.ViewAttr.textSize =>
-            writer.writeDimensionFact(FactsWriter.Fact.textSize, value, viewNode.nodeID)
+            writer.writeDimensionFact(FactsWriter.Fact.textSize, value, nodeID)
           case AndroidView.ViewAttr.background =>
-            writer.writeFact(FactsWriter.Fact.background, value, viewNode.nodeID)
+            writer.writeFact(FactsWriter.Fact.background, value, nodeID)
           case AndroidView.ViewAttr.text =>
-            writer.writeFact(FactsWriter.Fact.textContent, value, viewNode.nodeID)
+            writer.writeFact(FactsWriter.Fact.textContent, value, nodeID)
             if (value.toLowerCase().contains("rec")) {
-              writer.writeFact(FactsWriter.Fact.recordButton, viewNode.nodeID)
+              writer.writeFact(FactsWriter.Fact.recordButton, nodeID)
             }
             if (value.toLowerCase().contains("continue")) {
-              writer.writeFact(FactsWriter.Fact.actionButton, viewNode.nodeID)
+              writer.writeFact(FactsWriter.Fact.actionButton, nodeID)
             }
           case AndroidView.ViewAttr.dialogTitle =>
-            writer.writeFact(FactsWriter.Fact.dialogTitle, value, viewNode.nodeID)
+            writer.writeFact(FactsWriter.Fact.dialogTitle, value, nodeID)
           case AndroidView.ViewAttr.dialogMessage =>
-            writer.writeFact(FactsWriter.Fact.dialogMessage, value, viewNode.nodeID)
+            writer.writeFact(FactsWriter.Fact.dialogMessage, value, nodeID)
           case AndroidView.ViewAttr.contentDescription => hasContentDescription = true
           case _ =>
         }
@@ -92,21 +96,24 @@ class PostAnalysis(core: Core, vascoSolution: DataFlowSolution[soot.Unit, AFTDom
     }
     for ((attrib, value) <- viewNode.getAppAttrs) {
       if (value != null) {
-        writer.writeFact(FactsWriter.Fact.withName(attrib.name()), viewNode.nodeID, value)
+        writer.writeFact(FactsWriter.Fact.withName(attrib.name()), nodeID, value)
       }
     }
     viewNode.sootClass match {
       case Some(c) =>
         if (!hasContentDescription && appInfo.hier.isSubclassOf(c, Constants.imageViewClass)) {
-          writer.writeFact(FactsWriter.Fact.imageHasNoContentDescription, viewNode.nodeID)
+          writer.writeFact(FactsWriter.Fact.imageHasNoContentDescription, nodeID)
         }
         if (Constants.isAdViewClass(c)) {
           writer.writeFact(FactsWriter.Fact.adViewClass, c)
         }
-        writer.writeFact(FactsWriter.Fact.viewClass, c.getName, viewNode.nodeID)
-        if (appInfo.hier.isSubclassOf(c, Constants.buttonViewClass)) writer.writeFact(FactsWriter.Fact.buttonView, viewNode.nodeID)
+        writer.writeFact(FactsWriter.Fact.viewClass, c.getName, nodeID)
+        if (appInfo.hier.isSubclassOf(c, Constants.buttonViewClass)) {
+          writer.writeFact(FactsWriter.Fact.buttonView, nodeID)
+        }
         if (appInfo.isDialogClass(c)) {
-          writer.writeFact(FactsWriter.Fact.dialogView, viewNode.nodeID, core.controlFlowGraphManager.getMethodOf(viewNode.allocSite))
+          writer.writeFact(FactsWriter.Fact.dialogView, nodeID,
+            core.controlFlowGraphManager.getMethodOf(viewNode.allocSite))
         }
       case None =>
     }
@@ -114,10 +121,15 @@ class PostAnalysis(core: Core, vascoSolution: DataFlowSolution[soot.Unit, AFTDom
 
   private def writeFactsPostVASCO(): Unit = {
     for (act <- core.appInfo.allActivities) {
+      val ownerActivity = if (core.vascoMode == "elf-ns") {
+        Some(act)
+      } else {
+        None
+      }
       for ((handler, event) <- core.appInfo.getActivityHandlers(act)) {
         analyzeAnyHandlerPostVASCO(handler)
         writer.writeFact(FactsWriter.Fact.activityEventHandler, event, handler, act)
-        analyzeActivityHandlerPostVasco(handler)
+        analyzeActivityHandlerPostVasco(handler, ownerActivity = ownerActivity)
       }
 
       val lifecycleMethods = List(
@@ -127,7 +139,7 @@ class PostAnalysis(core: Core, vascoSolution: DataFlowSolution[soot.Unit, AFTDom
       for (m <- lifecycleMethods) {
         if (m != null) {
           analyzeAnyHandlerPostVASCO(m)
-          analyzeActivityHandlerPostVasco(m)
+          analyzeActivityHandlerPostVasco(m, ownerActivity = ownerActivity)
         }
       }
     }
@@ -153,18 +165,35 @@ class PostAnalysis(core: Core, vascoSolution: DataFlowSolution[soot.Unit, AFTDom
     }
   }
 
-  private def analyzeActivityHandlerPostVasco(handler: SootMethod): Unit = {
+  private def analyzeActivityHandlerPostVasco(handler: SootMethod, ownerActivity: Option[soot.SootClass] = None): Unit = {
     for (endpoint <- core.icfg.getEndPointsOf(handler).asScala) {
       val aftDomain = vascoSolution.getValueAfter(endpoint)
       if (aftDomain != null) {
+        val windowNodes = ownerActivity.map(act => aftDomain.activityRootViewMap.getOrElse(act, Set()))
+
         // TODO: inspect view nodes at the end of each activity handler
         // NOTE: there is extra computation, but do we care?
         for ((node, children) <- aftDomain.nodeEdgeMap) {
-          val ownerActivities = aftDomain.getOwnerActivities(handler, endpoint.asInstanceOf[Stmt], node)
-          analyzeViewNode(node)
+          if (core.vascoMode == "elf-ns") {
+            if (windowNodes.isDefined) {
+              for (windowNode <- windowNodes.get) {
+                analyzeViewNode(node, Some(windowNode))
+              }
+            }
+          } else {
+            analyzeViewNode(node)
+          }
           for (child <- children) {
-            writer.writeFact(FactsWriter.Fact.containsView, node.nodeID, child.nodeID)
-            analyzeViewNode(child)
+            if (core.vascoMode == "elf-ns") {
+              if (windowNodes.isDefined) {
+                for (windowNode <- windowNodes.get) {
+                  analyzeViewNode(child, Some(windowNode))
+                }
+              }
+            } else {
+              writer.writeFact(FactsWriter.Fact.containsView, node.nodeID, child.nodeID)
+              analyzeViewNode(child)
+            }
           }
         }
       }
@@ -199,13 +228,6 @@ class PostAnalysis(core: Core, vascoSolution: DataFlowSolution[soot.Unit, AFTDom
             writer.writeFact(FactsWriter.Fact.rootView, act, viewNode.nodeID)
           }
         }
-      } else {
-        println("[WARN] Please submit an issue at https://github.com/izgzhen/markii/issues/new if this handler is missing " + handler + ":")
-        println("[WARN] Title: Miss handler in vascoSolution")
-        println("[WARN] Body:")
-        println(s"[WARN] Handler signature: ${handler.getSignature}")
-        println(s"[WARN] APK path or APK compilation steps: [PLEASE FILL]")
-        println(s"[WARN] Other steps to reproduce this error: [PLEASE FILL]")
       }
     }
 
@@ -285,7 +307,7 @@ class PostAnalysis(core: Core, vascoSolution: DataFlowSolution[soot.Unit, AFTDom
                 val updateListenerType = invokeExpr.getArg(1).getType.asInstanceOf[RefType]
                 val onConsentInfoUpdated = updateListenerType.getSootClass.getMethodUnsafe("void onConsentInfoUpdated(com.google.ads.consent.ConsentStatus)")
                 if (onConsentInfoUpdated != null) {
-                  writer.writeFact(FactsWriter.Fact.setConsetInfoUpdateHandler, handler, reached)
+                  writer.writeFact(FactsWriter.Fact.setConsetInfoUpdateHandler, handler, reached, onConsentInfoUpdated)
                 }
               }
               if (invokedMethod.getSignature == "<android.os.BaseBundle: void putString(java.lang.String,java.lang.String)>") {
