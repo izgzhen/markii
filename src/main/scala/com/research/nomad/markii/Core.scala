@@ -7,7 +7,7 @@ package com.research.nomad.markii
 import java.io.{FileWriter, PrintWriter}
 import java.nio.file.{Files, Paths}
 
-import com.research.nomad.markii.analyses.{ContextInsensitiveAnalysis, ContextSensitiveAnalysis, PreVASCO}
+import com.research.nomad.markii.analyses.{ContextInsensitiveAnalysis, ContextSensitiveAnalysis, FlowInsensitiveAnalysis, PreVASCO}
 import com.research.nomad.markii.dataflow.custom.{AbsFS, FromConfig}
 import com.research.nomad.markii.dataflow.{AFTDomain, AbsValSet, AbstractValue, AbstractValuePropIFDS, AbstractValuePropVASCO, CustomStatePropVASCO}
 import com.research.nomad.markii.instrument.{AllInstrument, DialogCreateInstrument, DialogInitInstrument}
@@ -144,7 +144,7 @@ class Core extends IAnalysis {
     vascoMode match {
       case "context-sensitive,flow-sensitive" => {
         val vascoProp = ContextSensitiveAnalysis(this, preVasco, entrypointsFull)
-        println("VASCO starts")
+        println("VASCO(CS,FS) starts")
         vascoProp.doAnalysis()
         println("VASCO finishes")
 
@@ -159,7 +159,18 @@ class Core extends IAnalysis {
       }
       case "context-insensitive,flow-sensitive" => {
         val vascoProp = ContextInsensitiveAnalysis(this, preVasco, entrypointsFull)
-        println("VASCO starts")
+        println("VASCO(CI,FS) starts")
+        vascoProp.doAnalysis()
+        println("VASCO finishes")
+
+        analyzedMethods.addAll(appInfo.getAllHandlers)
+        analyzedMethods.addAll(vascoProp.getMethods)
+
+        vascoProp.getMeetOverValidPathsSolution
+      }
+      case "context-insensitive,flow-insensitive" => {
+        val vascoProp = FlowInsensitiveAnalysis(this, preVasco, entrypointsFull)
+        println("VASCO(CI,FI) starts")
         vascoProp.doAnalysis()
         println("VASCO finishes")
 

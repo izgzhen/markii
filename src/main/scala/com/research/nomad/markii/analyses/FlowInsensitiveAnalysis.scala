@@ -8,14 +8,14 @@ import vasco.{DataFlowSolution, ProgramRepresentation}
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
-case class ContextInsensitiveAnalysisMixin(core: Core, preVasco: PreVASCO, entryPoints: List[SootMethod],
-                                           analysis: ContextInsensitiveAnalysis)
+case class FlowInsensitiveAnalysisMixin(core: Core, preVasco: PreVASCO, entryPoints: List[SootMethod],
+                                           analysis: FlowInsensitiveAnalysis)
   extends AbstractValuePropVASCO(core, preVasco, entryPoints) {
 
   override def onNewCall(method: SootMethod, invocation: soot.Unit): Unit = analysis.onNewCall(method, invocation)
 }
 
-abstract class ContextInsensitiveAnalysisImpl[M, N, A] extends InterProcDataAnalysis[M, N, A]{
+abstract class FlowInsensitiveAnalysisImpl[M, N, A] extends InterProcDataAnalysis[M, N, A]{
   protected val workList: mutable.Queue[WorkListItem[M, N]] = mutable.Queue()
   private val outValues: mutable.Map[N, A] = mutable.Map()
   private val inValues: mutable.Map[N, A] = mutable.Map()
@@ -42,11 +42,11 @@ abstract class ContextInsensitiveAnalysisImpl[M, N, A] extends InterProcDataAnal
       val item = workList.dequeue()
       val node = item.unit
       if (node != null) {
-        val predecessors = item.cfg.getPredsOf(node)
-        if (predecessors.size != 0) { // Initialise to the TOP value
+        val cfgNodes = item.cfg.iterator()
+        if (cfgNodes.hasNext) { // Initialise to the TOP value
           var in = topValue
           // Merge OUT values of all predecessors
-          for (pred <- predecessors.asScala) {
+          for (pred <- cfgNodes.asScala) {
             val predOut = outValues(pred)
             in = meet(in, predOut)
           }
@@ -112,8 +112,8 @@ abstract class ContextInsensitiveAnalysisImpl[M, N, A] extends InterProcDataAnal
 
         // If OUT has changed...
         if (!(out.get == prevOut)) { // Then add successors to the work-list.
-          for (successor <- item.cfg.getSuccsOf(node).asScala) {
-            workList.enqueue(WorkListItem(contextMethod, successor, item.cfg))
+          for (cfgNode <- item.cfg.asScala) {
+            workList.enqueue(WorkListItem(contextMethod, cfgNode, item.cfg))
           }
         }
       }
@@ -131,9 +131,9 @@ abstract class ContextInsensitiveAnalysisImpl[M, N, A] extends InterProcDataAnal
   def initMethodEntryValue(method: M, entryValue: A): AnalyzedMethod[A]
 }
 
-case class ContextInsensitiveAnalysis(core: Core, preVasco: PreVASCO, entryPoints: List[SootMethod])
-  extends ContextInsensitiveAnalysisImpl[SootMethod, soot.Unit, AFTDomain] {
-  val mixin = ContextInsensitiveAnalysisMixin(core, preVasco, entryPoints, this)
+case class FlowInsensitiveAnalysis(core: Core, preVasco: PreVASCO, entryPoints: List[SootMethod])
+  extends FlowInsensitiveAnalysisImpl[SootMethod, soot.Unit, AFTDomain] {
+  val mixin = FlowInsensitiveAnalysisMixin(core, preVasco, entryPoints, this)
 
   override def initMethodEntryValue(method: SootMethod, entryValue: AFTDomain): AnalyzedMethod[AFTDomain] = {
     val analyzedMethod = AnalyzedMethod(copy(entryValue), Some(topValue))
