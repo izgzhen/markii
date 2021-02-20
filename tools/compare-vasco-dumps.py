@@ -4,41 +4,63 @@ from typing import Any, List, Mapping, Tuple
 from pydantic import BaseModel
 from pydantic.tools import parse_obj_as
 
-class MethodAbs(BaseModel):
+class MethodAbsDetails(BaseModel):
     localNodeMap: Mapping[str, List[Tuple[str, str]]]
     globalNodeMap: Mapping[str, List[Tuple[str, str]]]
 
+class MethodAbs(BaseModel):
+    abstractions: List[Tuple[str, MethodAbsDetails]]
+    body: str
+
 with open(sys.argv[1], "r") as f:
     dump1: Mapping[str, List[Tuple[str, Any]]] = json.load(f)
+
 with open(sys.argv[2], "r") as f:
     dump2: Mapping[str, List[Tuple[str, Any]]] = json.load(f)
 
-def print_dump_info(name: str, dump):
-    print(len(dump))
-
-def get_sizes(abss: List[Tuple[str, MethodAbs]]):
+def get_metrics(method_abs: MethodAbs):
     return [{
-        "local_node_map_size": len(method_abs.localNodeMap),
-        "global_node_map_size": len(method_abs.globalNodeMap),
-    } for unit, method_abs in abss]
-
-print_dump_info(sys.argv[1], dump1)
-print_dump_info(sys.argv[2], dump2)
-
-print("Common method diff:")
+        "unit": unit,
+        "metrics": {
+            "local_node_map_size": len(abstraction.localNodeMap),
+            "global_node_map_size": len(abstraction.globalNodeMap),
+        },
+        "values": {
+            "local_node_map": abstraction.localNodeMap,
+            "global_node_map": abstraction.globalNodeMap,
+        }
+    } for unit, abstraction in method_abs.abstractions ]
 
 for m in set(dump1.keys()).intersection(set(dump2.keys())):
+    m_printed = False
     abs1 = dump1[m]
     abs2 = dump2[m]
-    parsed1 = parse_obj_as(List[Tuple[str, MethodAbs]], abs1)
-    parsed2 = parse_obj_as(List[Tuple[str, MethodAbs]], abs2)
-    sizes1 = get_sizes(parsed1)
-    sizes2 = get_sizes(parsed2)
-    assert len(sizes1) == len(sizes2)
-    if sizes1 != sizes2:
-        print("Difference abstraction sizes:")
-        for s1, s2 in zip(sizes1, sizes2):
-            for k in s1.keys():
-                if s1[k] != s2[k]:
-                    print("- %s: %s != %s" % (k, s1[k], s2[k]))
+    parsed1 = parse_obj_as(MethodAbs, abs1)
+    parsed2 = parse_obj_as(MethodAbs, abs2)
+    metrics1 = get_metrics(parsed1)
+    metrics2 = get_metrics(parsed2)
+    # assert len(metrics1) == len(metrics2)
+    if len(metrics1) != len(metrics2):
+        continue
+    if metrics1 != metrics2:
+        for s1, s2 in zip(metrics1, metrics2):
+            unit = s1["unit"]
+            # assert s1["unit"] == s2["unit"]
+            if s1["unit"] != s2["unit"]:
+                continue
+            for k in s1["metrics"].keys():
+                m1 = s1["metrics"][k]
+                m2 = s2["metrics"][k]
+                if m1 != m2:
+                    print("- %s: %s != %s" % (k, m1, m2))
+                    if m1 > m2:
+                        if not m_printed:
+                            print(f"===== Method {m} =====")
+                            print(parsed1.body)
+                            print()
+                            m_printed = True
+                        print(f"\t* [hint] method = {m}")
+                        print(f"\t* [hint] unit = {unit}")
+                        print("\t* [values] v1 = %s" % s1["values"][k[:-len("-size")]])
+                        print("\t* [values] v2 = %s" % s2["values"][k[:-len("-size")]])
         print()
