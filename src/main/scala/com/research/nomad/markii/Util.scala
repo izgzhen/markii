@@ -65,7 +65,7 @@ object Util {
                                nonEmpty: D => Boolean,
                                domainToJSONObj: D => Object,
                                methods: Iterable[SootMethod]): Unit = {
-    val outputData = mutable.Map[String, List[(String, Object)]]()
+    val outputData = mutable.Map[String, Object]()
     for (m <- methods) {
       val methodData = mutable.ArrayBuffer[(String, Object)]()
       if (m.hasActiveBody) { // To fix CI error https://github.com/izgzhen/markii/pull/75/checks?check_run_id=1647042974
@@ -75,7 +75,10 @@ object Util {
             methodData.addOne((unit.toString, domainToJSONObj(d)))
           }
         }
-        outputData.put(m.getSignature, methodData.toList)
+        outputData.put(m.getSignature, Map(
+          "body" -> m.getActiveBody.toString,
+          "abstractions" -> methodData.toList
+        ))
       }
     }
     val bw = new BufferedWriter(new FileWriter(outputPath))
