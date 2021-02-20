@@ -46,10 +46,10 @@ abstract class FlowInsensitiveAnalysisImpl[M, N, A] extends InterProcDataAnalysi
       val in = values.getOrElse(item.method, topValue)
 
       var out = topValue
+      val contextMethod = item.method
 
       for (node <- item.cfg.asScala) {
         var hit = false
-        val contextMethod = item.method
         if (programRepresentation.isCall(node)) {
           if (!programRepresentation.resolveTargets(contextMethod, node).isEmpty) {
             for (targetMethod <- programRepresentation.resolveTargets(contextMethod, node).asScala) {
@@ -75,24 +75,27 @@ abstract class FlowInsensitiveAnalysisImpl[M, N, A] extends InterProcDataAnalysi
               val localValue = callLocalFlowFunction(contextMethod, node, in)
               out = meet(out, localValue)
             }
-            else out = callLocalFlowFunction(contextMethod, node, in)
+            else {
+              out = meet(out, callLocalFlowFunction(contextMethod, node, in))
+            }
           }
           else { // handle phantom method
-            out = callLocalFlowFunction(contextMethod, node, in)
+            out = meet(out, callLocalFlowFunction(contextMethod, node, in))
           }
         } else {
-          out = normalFlowFunction(contextMethod, node, in)
+          out = meet(out, normalFlowFunction(contextMethod, node, in))
         }
       }
-      val contextMethod = item.method
 
       // Merge with previous OUT to force monotonicity (harmless if flow functions are monotinic)
       out = meet(out, in)
 
+      values.put(item.method, out)
+
       // If OUT has changed...
-//      if (!(out == in)) { // Then add successors to the work-list.
-//        workList.enqueue(WorkListItemM(contextMethod, item.cfg))
-//      }
+      if (!(out == in)) { // Then add successors to the work-list.
+        workList.enqueue(WorkListItemM(contextMethod, item.cfg))
+      }
     }
   }
 
