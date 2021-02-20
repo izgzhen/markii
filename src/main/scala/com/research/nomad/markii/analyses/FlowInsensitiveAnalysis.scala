@@ -41,7 +41,6 @@ abstract class FlowInsensitiveAnalysisImpl[M, N, A] extends InterProcDataAnalysi
     }
 
     while (workList.nonEmpty) {
-      System.out.println(workList.size)
       val item = workList.dequeue()
 
       val in = values.getOrElse(item.method, topValue)
