@@ -143,7 +143,7 @@ class Core extends IAnalysis {
     val entrypointsFull = appInfo.allActivities.flatMap(controlFlowGraphManager.getRunner).map(_.method).toList
     println(s"VASCO(${vascoMode}) starts")
     vascoMode match {
-      case "context-sensitive,flow-sensitive" |  "elf-ns" => {
+      case "context-sensitive,flow-sensitive" => {
         val vascoProp = ContextSensitiveAnalysis(this, preVasco, entrypointsFull)
         vascoProp.doAnalysis()
 
