@@ -121,15 +121,10 @@ class PostAnalysis(core: Core, vascoSolution: DataFlowSolution[soot.Unit, AFTDom
 
   private def writeFactsPostVASCO(): Unit = {
     for (act <- core.appInfo.allActivities) {
-      val ownerActivity = if (core.vascoMode == "elf-ns") {
-        Some(act)
-      } else {
-        None
-      }
       for ((handler, event) <- core.appInfo.getActivityHandlers(act)) {
         analyzeAnyHandlerPostVASCO(handler)
         writer.writeFact(FactsWriter.Fact.activityEventHandler, event, handler, act)
-        analyzeActivityHandlerPostVasco(handler, ownerActivity = ownerActivity)
+        analyzeActivityHandlerPostVasco(handler)
       }
 
       val lifecycleMethods = List(
@@ -139,7 +134,7 @@ class PostAnalysis(core: Core, vascoSolution: DataFlowSolution[soot.Unit, AFTDom
       for (m <- lifecycleMethods) {
         if (m != null) {
           analyzeAnyHandlerPostVASCO(m)
-          analyzeActivityHandlerPostVasco(m, ownerActivity = ownerActivity)
+          analyzeActivityHandlerPostVasco(m)
         }
       }
     }
@@ -165,35 +160,17 @@ class PostAnalysis(core: Core, vascoSolution: DataFlowSolution[soot.Unit, AFTDom
     }
   }
 
-  private def analyzeActivityHandlerPostVasco(handler: SootMethod, ownerActivity: Option[soot.SootClass] = None): Unit = {
+  private def analyzeActivityHandlerPostVasco(handler: SootMethod): Unit = {
     for (endpoint <- core.icfg.getEndPointsOf(handler).asScala) {
       val aftDomain = vascoSolution.getValueAfter(endpoint)
       if (aftDomain != null) {
-        val windowNodes = ownerActivity.map(act => aftDomain.activityRootViewMap.getOrElse(act, Set()))
-
         // TODO: inspect view nodes at the end of each activity handler
         // NOTE: there is extra computation, but do we care?
         for ((node, children) <- aftDomain.nodeEdgeMap) {
-          if (core.vascoMode == "elf-ns") {
-            if (windowNodes.isDefined) {
-              for (windowNode <- windowNodes.get) {
-                analyzeViewNode(node, Some(windowNode))
-              }
-            }
-          } else {
-            analyzeViewNode(node)
-          }
+          analyzeViewNode(node)
           for (child <- children) {
-            if (core.vascoMode == "elf-ns") {
-              if (windowNodes.isDefined) {
-                for (windowNode <- windowNodes.get) {
-                  analyzeViewNode(child, Some(windowNode))
-                }
-              }
-            } else {
-              writer.writeFact(FactsWriter.Fact.containsView, node.nodeID, child.nodeID)
-              analyzeViewNode(child)
-            }
+            writer.writeFact(FactsWriter.Fact.containsView, node.nodeID, child.nodeID)
+            analyzeViewNode(child)
           }
         }
       }
