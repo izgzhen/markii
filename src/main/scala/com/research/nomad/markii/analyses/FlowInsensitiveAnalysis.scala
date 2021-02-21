@@ -58,37 +58,30 @@ abstract class FlowInsensitiveAnalysisImpl[M, N, A] extends InterProcDataAnalysi
 
       for (node <- item.cfg.asScala) {
         if (programRepresentation.isCall(node)) {
-          if (!programRepresentation.resolveTargets(contextMethod, node).isEmpty) {
-            var hit = false
-            for (targetMethod <- programRepresentation.resolveTargets(contextMethod, node).asScala) {
-              val entryValue = callEntryFlowFunction(targetMethod, targetMethod, node, in)
+          var hit = false
+          for (targetMethod <- programRepresentation.resolveTargets(contextMethod, node).asScala) {
+            val entryValue = callEntryFlowFunction(targetMethod, targetMethod, node, in)
+            callers.getOrElseUpdate(targetMethod, mutable.Set()).addOne((contextMethod, item.cfg))
 
-              callers.getOrElseUpdate(targetMethod, mutable.Set()).addOne((contextMethod, item.cfg))
-
-              val v = values.get(targetMethod) match {
-                case Some(v) => {
-                  if (v != meet(v, entryValue)) {
-                    values.put(targetMethod, meet(v, entryValue))
-                    workList.addOne(WorkListItemM(item.method, item.cfg))
-                  }
-                  meet(v, entryValue)
+            val v = values.get(targetMethod) match {
+              case Some(v) => {
+                if (v != meet(v, entryValue)) {
+                  values.put(targetMethod, meet(v, entryValue))
+                  workList.addOne(WorkListItemM(targetMethod, programRepresentation.getControlFlowGraph(targetMethod)))
                 }
-                case None => {
-                  val v = initMethodEntryValue(targetMethod, entryValue)
-                  values.put(targetMethod, v)
-                  v
-                }
+                meet(v, entryValue)
               }
+              case None => {
+                val v = initMethodEntryValue(targetMethod, entryValue)
+                values.put(targetMethod, v)
+                v
+              }
+            }
 
-              hit = true
-              val returnedValue = callExitFlowFunction(contextMethod, targetMethod, node, v)
-              out = meet(out, returnedValue)
-            }
-            if (!hit) {
-              out = meet(out, callLocalFlowFunction(contextMethod, node, in))
-            }
+            hit = true
+            out = meet(out, callExitFlowFunction(contextMethod, targetMethod, node, v))
           }
-          else { // handle phantom method
+          if (!hit) {
             out = meet(out, callLocalFlowFunction(contextMethod, node, in))
           }
         } else {
