@@ -3,6 +3,7 @@ package com.research.nomad.markii.analyses
 import com.research.nomad.markii.Core
 import com.research.nomad.markii.dataflow.{AFTDomain, AbstractValuePropVASCO}
 import soot.SootMethod
+import soot.toolkits.graph.DirectedGraph
 import vasco.{DataFlowSolution, ProgramRepresentation}
 
 import scala.collection.mutable
@@ -16,12 +17,18 @@ case class FlowInsensitiveAnalysisMixin(core: Core, preVasco: PreVASCO, entryPoi
 }
 
 abstract class FlowInsensitiveAnalysisImpl[M, N, A] extends InterProcDataAnalysis[M, N, A]{
-  protected val workList: mutable.Queue[WorkListItemM[M, N]] = mutable.Queue()
+  implicit val ord: Ordering[WorkListItemM[M, N]] = new Ordering[WorkListItemM[M, N]] {
+    override def compare(x: WorkListItemM[M, N], y: WorkListItemM[M, N]): Int = {
+      x.method.hashCode() - y.method.hashCode()
+    }
+  }
+
+  protected val workList = mutable.TreeSet[WorkListItemM[M, N]]()
   private val values: mutable.Map[M, A] = mutable.Map()
-  private val callers: mutable.Map[M, mutable.Set[M]] = mutable.Map()
+  private val callers: mutable.Map[M, mutable.Set[(M, DirectedGraph[N])]] = mutable.Map()
 
   def onNewCall(method: M, invocation: N): Unit = {
-    workList.enqueue(WorkListItemM(method, programRepresentation.getControlFlowGraph(method)))
+    workList.addOne(WorkListItemM(method, programRepresentation.getControlFlowGraph(method)))
   }
 
   private def units(m: M): Iterable[N] = {
@@ -41,7 +48,8 @@ abstract class FlowInsensitiveAnalysisImpl[M, N, A] extends InterProcDataAnalysi
     }
 
     while (workList.nonEmpty) {
-      val item = workList.dequeue()
+      val item = workList.last
+      workList.remove(item)
 
       val in = values.getOrElse(item.method, topValue)
 
@@ -49,16 +57,22 @@ abstract class FlowInsensitiveAnalysisImpl[M, N, A] extends InterProcDataAnalysi
       val contextMethod = item.method
 
       for (node <- item.cfg.asScala) {
-        var hit = false
         if (programRepresentation.isCall(node)) {
           if (!programRepresentation.resolveTargets(contextMethod, node).isEmpty) {
+            var hit = false
             for (targetMethod <- programRepresentation.resolveTargets(contextMethod, node).asScala) {
               val entryValue = callEntryFlowFunction(targetMethod, targetMethod, node, in)
 
-              callers.getOrElseUpdate(targetMethod, mutable.Set()).addOne(contextMethod)
+              callers.getOrElseUpdate(targetMethod, mutable.Set()).addOne((contextMethod, item.cfg))
 
               val v = values.get(targetMethod) match {
-                case Some(v) => v
+                case Some(v) => {
+                  if (v != meet(v, entryValue)) {
+                    values.put(targetMethod, meet(v, entryValue))
+                    workList.addOne(WorkListItemM(item.method, item.cfg))
+                  }
+                  meet(v, entryValue)
+                }
                 case None => {
                   val v = initMethodEntryValue(targetMethod, entryValue)
                   values.put(targetMethod, v)
@@ -70,12 +84,7 @@ abstract class FlowInsensitiveAnalysisImpl[M, N, A] extends InterProcDataAnalysi
               val returnedValue = callExitFlowFunction(contextMethod, targetMethod, node, v)
               out = meet(out, returnedValue)
             }
-            // If there was at least one hit, continue propagation
-            if (hit) {
-              val localValue = callLocalFlowFunction(contextMethod, node, in)
-              out = meet(out, localValue)
-            }
-            else {
+            if (!hit) {
               out = meet(out, callLocalFlowFunction(contextMethod, node, in))
             }
           }
@@ -94,7 +103,10 @@ abstract class FlowInsensitiveAnalysisImpl[M, N, A] extends InterProcDataAnalysi
 
       // If OUT has changed...
       if (!(out == in)) { // Then add successors to the work-list.
-        workList.enqueue(WorkListItemM(contextMethod, item.cfg))
+        workList.addOne(WorkListItemM(contextMethod, item.cfg))
+        for (caller <- callers.getOrElse(item.method, Set())) {
+          workList.addOne(WorkListItemM(caller._1, caller._2))
+        }
       }
     }
   }
@@ -108,7 +120,7 @@ case class FlowInsensitiveAnalysis(core: Core, preVasco: PreVASCO, entryPoints: 
 
   override def initMethodEntryValue(method: SootMethod, entryValue: AFTDomain): AFTDomain = {
     val cfg = programRepresentation.getControlFlowGraph(method)
-    workList.enqueue(WorkListItemM(method, cfg))
+    workList.addOne(WorkListItemM(method, cfg))
     entryValue
   }
 
