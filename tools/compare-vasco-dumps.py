@@ -1,16 +1,8 @@
 import json
 import sys
 from typing import Any, List, Mapping, Tuple
-from pydantic import BaseModel
 from pydantic.tools import parse_obj_as
-
-class MethodAbsDetails(BaseModel):
-    localNodeMap: Mapping[str, List[Tuple[str, str]]]
-    globalNodeMap: Mapping[str, List[Tuple[str, str]]]
-
-class MethodAbs(BaseModel):
-    abstractions: List[Tuple[str, MethodAbsDetails]]
-    body: str
+from common import MethodAbs, get_metrics
 
 with open(sys.argv[1], "r") as f:
     dump1: Mapping[str, List[Tuple[str, Any]]] = json.load(f)
@@ -18,18 +10,6 @@ with open(sys.argv[1], "r") as f:
 with open(sys.argv[2], "r") as f:
     dump2: Mapping[str, List[Tuple[str, Any]]] = json.load(f)
 
-def get_metrics(method_abs: MethodAbs):
-    return [{
-        "unit": unit,
-        "metrics": {
-            "local_node_map_size": len(abstraction.localNodeMap),
-            "global_node_map_size": len(abstraction.globalNodeMap),
-        },
-        "values": {
-            "local_node_map": abstraction.localNodeMap,
-            "global_node_map": abstraction.globalNodeMap,
-        }
-    } for unit, abstraction in method_abs.abstractions ]
 
 for m in set(dump1.keys()).intersection(set(dump2.keys())):
     m_printed = False

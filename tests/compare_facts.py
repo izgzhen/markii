@@ -34,9 +34,10 @@ if __name__ == "__main__":
     facts_dir_1 = sys.argv[1]
     facts_dir_2 = sys.argv[2]
 
-    assert_eq_set(set(glob.glob(facts_dir_1 + "/*.fact")), set(glob.glob(facts_dir_2 + "/*.fact")))
+    assert_eq_set(set(os.path.basename(f) for f in glob.glob(facts_dir_1 + "/*.facts")),
+                  set(os.path.basename(f) for f in glob.glob(facts_dir_2 + "/*.facts")))
 
-    for f in glob.glob(facts_dir_1 + "/*.fact"):
+    for f in glob.glob(facts_dir_1 + "/*.facts"):
         filename = os.path.basename(f)
         f1 = os.path.join(facts_dir_1, filename)
         f2 = os.path.join(facts_dir_2, filename)

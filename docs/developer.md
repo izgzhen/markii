@@ -30,14 +30,14 @@ The first step is to create an IntelliJ run configuration (e.g. like [this](http
 NOTE: You need to stop early to preserve the temporary unpacked APK in the step before the one we care about.
 
 Using the printed our command, we take its part after `java -Xmx12G -cp  .../markii-assembly-0.1.jar presto.android.Main`, which are
-the actual program argument. We can just copy that part to the IntelliJ, with a suffix ` -clientParam debugMode:true`. This turns on debugging mode.
+the actual program argument.
 
 ### Dumped debugging info
 
-With `-clientParam debugMode:true`, the program will dump the following extra things:
+Adding environment variable `DEBUG=1` turns on debugging mode, and the program will dump the following extra things:
 
 - call graph: `/tmp/call-graph.txt`
-- captured abstract state in data-flow propagation: `/tmp/abstractions.txt`. See `com.research.nomad.markii.dataflow.AbstractValuePropVASCO#logState` for more details.
+- captured abstract state in data-flow propagation: `/tmp/{ifds,vasco}-abstractions.txt`. See `com.research.nomad.markii.dataflow.AbstractValuePropVASCO#logState` for more details.
 - logged state of analyzer: `/tmp/markii-custom-debug` and `/tmp/markii-debug` (useful if the analysis is slow/stuck)
     + Use `python tools/debug-markii.py custom` to pretty-print `/tmp/markii-custom-debug`
     + Use `python tools/debug-markii.py` to pretty-print `/tmp/markii-debug`

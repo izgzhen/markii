@@ -98,7 +98,7 @@ object AbsNode {
         attrStrings.addOne(f"buttonType: ${buttonType.get}")
       }
       attrStrings.addOne(f"attributes: ${attributes}" )
-      f"ViewNode(${attrStrings.mkString(",")})"
+      f"ViewNode[${nodeID}](${attrStrings.mkString(",")})"
     }
 
     def getAttrs: Iterable[(AndroidView.ViewAttr, String)] = {

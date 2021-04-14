@@ -432,9 +432,10 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
       d
     }
   }
+
   def setDialogTitle(ctxMethod: SootMethod, stmt: Stmt, viewLocal: Local, param: Value): AFTDomain = {
     var d = copy()
-    d = d.updateLocalViewNodes(ctxMethod, stmt, viewLocal,{
+    d = d.updateLocalViewNodes(ctxMethod, stmt, viewLocal, {
       case viewNode: ViewNode =>
         val newAttr = Set((AndroidView.ViewAttr.dialogTitle, param)).collect {
           case (attr, stringConstant: StringConstant) =>
@@ -448,13 +449,13 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
 
   def setDialogMessage(ctxMethod: SootMethod, stmt: Stmt, viewLocal: Local, param: Value): AFTDomain = {
     var d = copy()
-    d = d.updateLocalViewNodes(ctxMethod, stmt, viewLocal,{
+    d = d.updateLocalViewNodes(ctxMethod, stmt, viewLocal, {
       case viewNode: ViewNode =>
-        val newAttr = Set((AndroidView.ViewAttr.dialogMessage, param)).flatMap{
+        val newAttr = Set((AndroidView.ViewAttr.dialogMessage, param)).flatMap {
           case (attr, stringConstant: StringConstant) =>
             Some((attr, stringConstant.value))
           case (attr, intConstant: IntConstant) =>
-            Globals.appInfo.getStringResourceValueById(intConstant.value) match{
+            Globals.appInfo.getStringResourceValueById(intConstant.value) match {
               case Some(s) =>
                 Some((attr, s))
               case _ => None
@@ -669,7 +670,9 @@ case class AFTDomain(private val localNodeMap: Map[Local, AccessPath[AbsValSet[A
 
   def toJSONObj: Object = Map[String, Object](
     "localNodeMap" -> localNodeMap.map { case (k, v) => (k.toString(), v.toJSONObj) },
-    "globalNodeMap" -> globalNodeMap.map { case (k, v) => (k.toString(), v.toJSONObj) }
+    "globalNodeMap" -> globalNodeMap.map { case (k, v) => (k.toString, v.toJSONObj) },
+    "nodeHandlerMap" -> nodeHandlerMap.map { case (k, v) => (k._1.nodeID, k._2.toString, v.map(_._1.getSignature).toList) },
+    "dialogHandlerMap" -> dialogHandlerMap.map { case (k, v) => (k._1.nodeID, k._2.toString, v.map(_.getSignature).toList) },
   )
 }
 

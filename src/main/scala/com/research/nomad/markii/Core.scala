@@ -119,15 +119,23 @@ class Core extends IAnalysis {
     // Dump abstractions
     if (isDebugMode) {
       dumpCallgraph()
-      dumpIFDSAbstractions(outputPath + "/ifds-abstractions.txt")
-      Util.dumpVASCOAbstractions[AFTDomain](outputPath + "/vasco-abstractions.json",
+
+      val ifdsPath = outputPath + "/ifds-abstractions.txt";
+      println(s"Dump IFDS abstractions to: ${ifdsPath}")
+      dumpIFDSAbstractions(ifdsPath)
+
+      val vascoPath = outputPath + "/vasco-abstractions.json"
+      println(s"Dump VASCO abstractions to: ${vascoPath}")
+      Util.dumpVASCOAbstractions[AFTDomain](vascoPath,
         solution, x => x.nonEmpty, x => x.toJSONObj, analyzedMethods)
     }
   }
 
 
   private def dumpCallgraph(): Unit = {
-    val printWriter: PrintWriter = new PrintWriter("/tmp/call-graph.txt")
+    val destPath = "/tmp/call-graph.txt";
+    println(s"Dump callgraph to: ${destPath}")
+    val printWriter: PrintWriter = new PrintWriter(destPath)
     for (edge <- Scene.v().getCallGraph.asScala) {
       val source = edge.getSrc.method()
       if (analyzedMethods.contains(source) && !Configs.isLibraryClass(source.getDeclaringClass.getName)) {

@@ -93,12 +93,12 @@ abstract class AbstractValuePropVASCO(core: Core, preVasco: PreVASCO, entryPoint
         }
       case invokeExpr: InstanceInvokeExpr =>
         val signature = invokeExpr.getMethod.getSignature
+        val baseLocal = invokeExpr.getBase.asInstanceOf[Local]
         if (core.appInfo.isActivityFindViewById(invokeExpr.getMethod)) {
           invokeExpr.getArg(0) match {
             case intConstant: IntConstant =>
-              val activityBase = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase
               // FIXME: over-approx of activity instances
-              val activityClass = activityBase.getType.asInstanceOf[RefType].getSootClass
+              val activityClass = baseLocal.getType.asInstanceOf[RefType].getSootClass
               val subViews = mutable.Set[ViewNode]()
               val id = intConstant.value
               ctx.activityRootViewMap.get(activityClass) match {
@@ -115,10 +115,9 @@ abstract class AbstractValuePropVASCO(core: Core, preVasco: PreVASCO, entryPoint
         if (core.appInfo.isDialogFindViewById(invokeExpr.getMethod) || Constants.isViewFindViewById(invokeExpr.getMethod)) {
           invokeExpr.getArg(0) match {
             case intConstant: IntConstant =>
-              val viewLocal = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.asInstanceOf[Local]
               val subViews = mutable.Set[ViewNode]()
               val id = intConstant.value
-              for (viewNode <- ctx.getViewNodes(contextMethod, assignStmt, viewLocal)) {
+              for (viewNode <- ctx.getViewNodes(contextMethod, assignStmt, baseLocal)) {
                 subViews.addAll(ctx.findViewById(viewNode, id))
               }
               return killed.withNodes(ref, subViews.toSet)
@@ -129,15 +128,18 @@ abstract class AbstractValuePropVASCO(core: Core, preVasco: PreVASCO, entryPoint
 //          println("Unhandled signature: " + signature)
         }
         if (Constants.isDialogBuilderCreate(signature)) {
-          val builder = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase.asInstanceOf[Local]
           return killed.dialogCreate(
             ref, sootClass = invokeExpr.getType.asInstanceOf[RefType].getSootClass,
-            assignStmt, builder, contextMethod)
+            assignStmt, baseLocal, contextMethod)
         }
         val subSig = invokeExpr.getMethod.getSubSignature
         val setButtionType = Constants.fromDialogBuilderSetButton(subSig)
         if (setButtionType.nonEmpty) {
           setDialogButtonListener(setButtionType.get, invokeExpr, input, contextMethod, assignStmt)
+        } else if (Constants.isDialogSetTitle(invokeExpr.getMethod.getSignature)) {
+          input.setDialogTitle(contextMethod, assignStmt, baseLocal, invokeExpr.getArg(0))
+        } else if (Constants.isDialogSetMessage(invokeExpr.getMethod.getSignature)) {
+          input.setDialogMessage(contextMethod, assignStmt, baseLocal, invokeExpr.getArg(0))
         } else if (Constants.isDialogBuilderSetAny(subSig)) {
           input // Don't kill for other builder setters
         } else if (signature == "<android.view.LayoutInflater: android.view.View inflate(int,android.view.ViewGroup,boolean)>") {
@@ -155,8 +157,7 @@ abstract class AbstractValuePropVASCO(core: Core, preVasco: PreVASCO, entryPoint
         } else if (invokeExpr.isInstanceOf[InstanceInvokeExpr] &&
                    UnifiedObjectAPI.isBaseClass(invokeExpr.getMethod.getDeclaringClass)) {
           // TODO: rewrite this whole thing with CustomState, use alias and analyze semantics
-          val base = invokeExpr.asInstanceOf[InstanceInvokeExpr].getBase
-          assigned(contextMethod, assignStmt, ref, base, ctx, input)
+          assigned(contextMethod, assignStmt, ref, baseLocal, ctx, input)
         } else {
           killed
         }
