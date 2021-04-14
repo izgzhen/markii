@@ -19,7 +19,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    public void sendMessage(View view){
+    public void sendMessage(View view) {
         Intent intent = new Intent(this, DisplayMessageActivity.class);
         EditText editText = (EditText) findViewById(R.id.editText);
         String message = editText.getText().toString();
@@ -28,8 +28,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    public void fire(View view){
+    public void fire(View view) {
         FireMissilesDialogFragment diag = new FireMissilesDialogFragment();
         diag.show(getSupportFragmentManager(), "missiles");
+    }
+
+    public void fire2(View view) {
+        FireMissilesDialogFragment2 diag2 = new FireMissilesDialogFragment2();
+        diag2.show(getSupportFragmentManager(), "missiles2");
     }
 }

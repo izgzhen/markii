@@ -81,18 +81,19 @@ object Constants {
       None
     }
 
-  def isDialogSetTitle(sig: String): Boolean =
-    dialogClassNames.exists(x => sig.startsWith("<" + x + ": void setTitle("))
+  def isDialogSetTitle(methodSignature: String): Boolean =
+    dialogClassNames.exists(x => methodSignature.startsWith("<" + x + ": void setTitle(")) ||
+      dialogClassNames.exists(x => methodSignature.startsWith("<" + x + ": " + x + " setTitle("))
 
-  def isDialogSetMessage(sig: String): Boolean =
-    dialogClassNames.exists(x => sig.startsWith("<" + x + ": void setMessage(" )) ||
-    dialogClassNames.exists(x => sig.startsWith("<" + x + ": " + x + " setMessage("))
+  def isDialogSetMessage(methodSignature: String): Boolean =
+    dialogClassNames.exists(x => methodSignature.startsWith("<" + x + ": void setMessage(" )) ||
+    dialogClassNames.exists(x => methodSignature.startsWith("<" + x + ": " + x + " setMessage("))
 
   def isDialogBuilderSetAny(subSig: String): Boolean =
     dialogClassNames.exists(x => subSig.startsWith(x + "$Builder set"))
 
-  def isDialogSetButton(sig: String): Boolean =
-    dialogClassNames.exists(x => sig.startsWith("<" + x + ": void setButton("))
+  def isDialogSetButton(methodSignature: String): Boolean =
+    dialogClassNames.exists(x => methodSignature.startsWith("<" + x + ": void setButton("))
 
   def isDialogShow(sig: String): Boolean =
     dialogClassNames.exists(x => sig == "<" + x + ": void show()>")
