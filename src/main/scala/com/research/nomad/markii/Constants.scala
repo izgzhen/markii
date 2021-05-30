@@ -116,6 +116,7 @@ object Constants {
   private val adClassPrefixMethodName = List(
     ("com.ltad.unions.ads", "showAd"),
     ("com.screen.main.CoverAdComponent", "showAd"),
+    ("com.android.boot.getADS.StartAd", "<init>"),
     ("com.Leadbolt.AdController", "loadNotification"))
 
   def isViewFindViewById(m: SootMethod): Boolean =
