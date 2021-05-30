@@ -82,6 +82,28 @@ class CallGraphManager(appInfo: AppInfo) {
                     case _ =>
                   }
                 }
+                if (invokedTarget.getSignature == "<android.os.Handler: boolean postDelayed(java.lang.Runnable,long)>") {
+                    val runnableType = stmt.getInvokeExpr.getArg(0).getType.asInstanceOf[RefType]
+                  if (runnableType.getSootClass.isConcrete) {
+                    val run = appInfo.hier.virtualDispatch(Scene.v().getMethod("<java.lang.Runnable: void run()>"), runnableType.getSootClass)
+                    if (run != null) {
+                      extraEdgeOutMap.getOrElseUpdate(m, mutable.Set()).add(run)
+                      for ((srcClass, intents) <- Ic3Manager.getIntents(run)) {
+                        for (intent <- intents) {
+                          if (intent.getComponentClass != null && intent.getComponentClass.nonEmpty) {
+                            val targetAct = Scene.v().getSootClass(intent.getComponentClass)
+                            val onCreate = targetAct.getMethodByNameUnsafe("onCreate");
+                            if (onCreate != null) {
+                              extraEdgeOutMap.getOrElseUpdate(m, mutable.Set()).add(onCreate)
+                            }
+                          }
+                        }
+                      }
+                    } else {
+                      println("No run in " + runnableType.getSootClass)
+                    }
+                  }
+                }
               }
               for (target <- dispatchedTargets) {
                 if (isTargetMethod(target)) {
@@ -93,17 +115,6 @@ class CallGraphManager(appInfo: AppInfo) {
                   }
                   if (edge == null) {
                     Scene.v().getCallGraph.addEdge(new Edge(m, stmt, target))
-                  }
-                }
-                if (target.getSignature == "<android.os.Handler: boolean postDelayed(java.lang.Runnable,long)>") {
-                  val runnableType = stmt.getInvokeExpr.getArg(0).getType.asInstanceOf[RefType]
-                  if (runnableType.getSootClass.isConcrete) {
-                    val run = appInfo.hier.virtualDispatch(Scene.v().getMethod("<java.lang.Runnable: void run()>"), runnableType.getSootClass)
-                    if (run != null) {
-                      extraEdgeOutMap.getOrElseUpdate(m, mutable.Set()).add(run)
-                    } else {
-                      println("No run in " + runnableType.getSootClass)
-                    }
                   }
                 }
               }

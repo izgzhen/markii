@@ -112,6 +112,7 @@ object Constants {
       "<com.myadgame.adinterface: void setinterface_ts(android.content.Context)>",
       "<com.kuguo.ad.KuguoAdsManager: void receivePushMessage(android.content.Context,boolean)>",
       "<com.startapp.android.publish.StartAppAd: void showSlider(android.app.Activity)>",
+      "<com.adsmogo.interstitial.AdsMogoInterstitialManager: void initDefaultInterstitial()>",
       "<com.startapp.android.publish.StartAppAd: void onBackPressed()>")
 
   def isAdIdName(idName: String): Boolean = idName.contains("NativeAd")
