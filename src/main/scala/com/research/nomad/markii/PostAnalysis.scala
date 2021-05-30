@@ -40,6 +40,11 @@ class PostAnalysis(core: Core, vascoSolution: DataFlowSolution[soot.Unit, AFTDom
       if (onDestroy != null) {
         writer.writeFact(FactsWriter.Fact.lifecycleMethod, activityClass, "onDestroy", onDestroy)
       }
+
+      val onResume = appInfo.hier.virtualDispatch(MethodNames.onActivityResumeSubSig, activityClass)
+      if (onResume != null) {
+        writer.writeFact(FactsWriter.Fact.lifecycleMethod, activityClass, "onResume", onResume)
+      }
       if (appInfo.hier.isSubclassOf(activityClass, Constants.prefActivity)) {
         writer.writeFact(FactsWriter.Fact.preferenceActivity, activityClass)
       }

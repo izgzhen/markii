@@ -121,6 +121,8 @@ object Constants {
     ("com.ltad.unions.ads", "showAd"),
     ("com.screen.main.CoverAdComponent", "showAd"),
     ("com.android.boot.getADS.StartAd", "<init>"),
+    ("com.sponsorpay.SponsorPay", "start"),
+    ("com.anzhi.ad.coverscreen.CoverAdComponent", "showAd"),
     ("com.Leadbolt.AdController", "loadNotification"))
 
   def isViewFindViewById(m: SootMethod): Boolean =
