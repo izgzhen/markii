@@ -109,6 +109,8 @@ object Constants {
       "<com.startapp.android.publish.StartAppAd: boolean showAd()>",
       "<com.gamevil.illusia.IllusiaLauncher: void addKyView()>",
       "<net.youmi.android.spot.SpotManager: void loadSpotAds()>",
+      "<com.myadgame.adinterface: void setinterface_ts(android.content.Context)>",
+      "<com.kuguo.ad.KuguoAdsManager: void receivePushMessage(android.content.Context,boolean)>",
       "<com.startapp.android.publish.StartAppAd: void showSlider(android.app.Activity)>",
       "<com.startapp.android.publish.StartAppAd: void onBackPressed()>")
 
