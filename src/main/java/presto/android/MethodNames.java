@@ -144,6 +144,7 @@ public interface MethodNames {
   //--- framework handlers
   String onActivityCreateSubSig = "void onCreate(android.os.Bundle)";
   String onActivityStartSubSig = "void onStart()";
+  String onServiceStartSubSig = "void onStart(android.content.Intent,int)";
   String onActivityRestartSubSig = "void onRestart()";
   String onActivityResumeSubSig = "void onResume()";
   String onActivityPauseSubSig = "void onPause()";

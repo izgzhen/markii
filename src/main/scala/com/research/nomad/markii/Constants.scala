@@ -133,6 +133,15 @@ object Constants {
     ("coverscreen.CoverAdComponent", "showAd")
   )
 
+  val adDownloadServices = List(
+    "com.umeng.common.net.DownloadingService",
+    "net.youmi.android.YoumiService",
+    "com.kyview.DownloadService",
+    "com.nd.diandong.DownloadService",
+    "com.qq.e.comm.DownloadService",
+    "com.nowistech.game.ap.MyService"
+  )
+
   private val suspiciousAdClassPrefixMethodName = List(("com.google.android.gms.ads.InterstitialAd", "loadAd"))
 
   private val adNamePattern = Pattern.compile("(show|start|init).*(Ad|Offers)")

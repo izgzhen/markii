@@ -20,10 +20,23 @@ class PostAnalysis(core: Core, vascoSolution: DataFlowSolution[soot.Unit, AFTDom
   private val appInfo = core.appInfo
 
   def run(): Unit = {
+    var entryMethod: Option[SootMethod] = None
+    if (appInfo.mainActivity != null) {
+      val onCreate = appInfo.hier.virtualDispatch(MethodNames.onActivityCreateSubSig, appInfo.mainActivity)
+      if (onCreate != null) {
+        entryMethod = Some(onCreate)
+      }
+    }
     for (service <- appInfo.getServices) {
       writer.writeFact(FactsWriter.Fact.serviceClass, service)
       val names = service.getName.split("\\.")
       writer.writeFact(FactsWriter.Fact.serviceClassLastName, service, names.last)
+      if (Constants.adDownloadServices.contains(service.getName) && entryMethod.nonEmpty) {
+        val onStart = appInfo.hier.virtualDispatch(MethodNames.onServiceStartSubSig, service)
+        if (onStart != null) {
+          writer.writeFact(FactsWriter.Fact.showAd, entryMethod.get.method(), onStart)
+        }
+      }
     }
 
     for ((handler, reached, target) <- preVASCO.getStartActivityFacts) {
