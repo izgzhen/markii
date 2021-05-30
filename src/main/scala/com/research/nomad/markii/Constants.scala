@@ -107,6 +107,7 @@ object Constants {
   private val adMethodSigs =
     Set("<com.applovin.impl.sdk.NativeAdImpl: void launchClickTarget(android.content.Context)>",
       "<com.startapp.android.publish.StartAppAd: boolean showAd()>",
+      "<com.gamevil.illusia.IllusiaLauncher: void addKyView()>",
       "<com.startapp.android.publish.StartAppAd: void showSlider(android.app.Activity)>",
       "<com.startapp.android.publish.StartAppAd: void onBackPressed()>")
 
