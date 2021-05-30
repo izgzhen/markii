@@ -132,7 +132,7 @@ object Constants {
 
   private val adNamePattern = Pattern.compile("(show|start|init).*(Ad|Offers)")
   private val classNamePattern = Pattern.compile(".+\\.(AirPlay|AppConnect|QuMiConnect)")
-  private val adViewClassNamePattern = Pattern.compile(".+\\.(AdView)")
+  private val adViewClassNamePattern = Pattern.compile(".+\\.(AdView)\\w*")
 
   // TODO: might use some from [[adMethodSigs]] and [[adClassPrefixMethodNames]]
   private val adViewClassNames = Set("com.google.android.gms.ads.formats.MediaView")
