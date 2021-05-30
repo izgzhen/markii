@@ -108,6 +108,7 @@ object Constants {
     Set("<com.applovin.impl.sdk.NativeAdImpl: void launchClickTarget(android.content.Context)>",
       "<com.startapp.android.publish.StartAppAd: boolean showAd()>",
       "<com.gamevil.illusia.IllusiaLauncher: void addKyView()>",
+      "<net.youmi.android.spot.SpotManager: void loadSpotAds()>",
       "<com.startapp.android.publish.StartAppAd: void showSlider(android.app.Activity)>",
       "<com.startapp.android.publish.StartAppAd: void onBackPressed()>")
 
