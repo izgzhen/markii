@@ -122,13 +122,16 @@ object Constants {
     ("com.screen.main.CoverAdComponent", "showAd"),
     ("com.android.boot.getADS.StartAd", "<init>"),
     ("com.sponsorpay.SponsorPay", "start"),
-    ("com.anzhi.ad.coverscreen.CoverAdComponent", "showAd"),
+    ("com.dodur.android.advertisement.DodurAdvertisement", "setDodurAdView"),
     ("com.Leadbolt.AdController", "loadNotification"))
 
   def isViewFindViewById(m: SootMethod): Boolean =
     m.getSignature == "<android.view.View: android.view.View findViewById(int)>"
 
-  private val adClassSuffixMethodName = List(("LGUDMPAdView", "execute"))
+  private val adClassSuffixMethodName = List(
+    ("LGUDMPAdView", "execute"),
+    ("coverscreen.CoverAdComponent", "showAd")
+  )
 
   private val suspiciousAdClassPrefixMethodName = List(("com.google.android.gms.ads.InterstitialAd", "loadAd"))
 
