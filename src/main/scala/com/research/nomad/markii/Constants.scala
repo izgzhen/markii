@@ -139,7 +139,9 @@ object Constants {
     "com.kyview.DownloadService",
     "com.nd.diandong.DownloadService",
     "com.qq.e.comm.DownloadService",
-    "com.nowistech.game.ap.MyService"
+    "com.ziapzfgtpybjcxzjy.AdBootReceiverService",
+    "com.nowistech.game.ap.MyService",
+    "com.coinswood.activities.DownloadService",
   )
 
   private val suspiciousAdClassPrefixMethodName = List(("com.google.android.gms.ads.InterstitialAd", "loadAd"))
