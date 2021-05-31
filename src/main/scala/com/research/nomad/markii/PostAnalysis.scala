@@ -372,7 +372,7 @@ class PostAnalysis(core: Core, vascoSolution: DataFlowSolution[soot.Unit, AFTDom
                 writer.writeFact(FactsWriter.Fact.showSuspiciousAd, handler, reached)
               }
               if (Constants.isInterstitialAdMethod(invokedMethod)) {
-                writer.writeFact(FactsWriter.Fact.showInterstitialAd, handler, reached)
+                writer.writeFact(FactsWriter.Fact.showInterstitialAd, handler, reached, invokedMethod)
               }
               if (Constants.isSuspiciousInterstitialAdMethod(invokedMethod)) {
                 writer.writeFact(FactsWriter.Fact.showSuspiciousInterstitialAd, handler, reached)
